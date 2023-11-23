@@ -208,5 +208,5 @@ class GPT4(LanguageModel):
             ],
             model=self.model,
         )
-        response.choices[0].message.content
-        return res
+        
+        return response.choices[0].message.content

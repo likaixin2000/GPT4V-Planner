@@ -16,7 +16,7 @@ def convert_xywh_to_x1y1x2y2(xywh_box):
     list: Bounding box in X1Y1X2Y2 format [x1, y1, x2, y2].
     """
     x, y, width, height = xywh_box
-    return [x1, y1, x + width, y + height]
+    return [x, y, x + width, y + height]
 
 class Detector():
     pass
@@ -73,10 +73,10 @@ class OWLViT(Detector):
         
         
         # Assert that all lists have the same length
-        assert len({len(scores), len(boxes), len(box_names), len(objectnesses)}) == 1, "Server returned data with different lengths. Something is wrong, most probably on the server side."
+        assert len({len(scores), len(bboxes), len(box_names), len(objectnesses)}) == 1, "Server returned data with different lengths. Something is wrong, most probably on the server side."
 
-        dict_data = [{'score': score, 'box': box, 'box_name': box_name, 'objectness': objectness} 
-                 for score, box, box_name, objectness in zip(scores, boxes, box_names, objectnesses)]
+        dict_data = [{'score': score, 'bbox': bbox, 'box_name': box_name, 'objectness': objectness} 
+                 for score, bbox, box_name, objectness in zip(scores, bboxes, box_names, objectnesses)]
 
         return dict_data
 
