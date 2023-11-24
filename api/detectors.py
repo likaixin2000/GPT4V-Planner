@@ -27,7 +27,7 @@ class OWLViT(Detector):
     def __init__(self,):
         pass
 
-    def detect_objects(self, image: Image, text_queries: list[str], bbox_score_top_k=20, bbox_conf_threshold=0.5):
+    def detect_objects(self, image: Image.Image, text_queries: list[str], bbox_score_top_k=20, bbox_conf_threshold=0.5):
         """
         Function to call an object detection API and return the response.
 

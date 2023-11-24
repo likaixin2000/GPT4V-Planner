@@ -1,4 +1,6 @@
 import re
+from typing import List, Optional, Dict, Any
+
 from PIL import Image
 
 from api.language_model import LanguageModel
@@ -57,6 +59,39 @@ DEFAULT_ACTION_SPACE = """
  - open(item)
 """
 
+class PlanResult:
+    def __init__(
+        self, 
+        success: bool = False, 
+        error_message: Optional[str] = None, 
+        plan_raw: Optional[str] = None, 
+        masks: Optional[list[Any]] = None, 
+        prompt: Optional[str] = None, 
+        plan_code: Optional[str] = None, 
+        annotated_image: Optional[Image.Image] = None, 
+        info_dict: Optional[Dict[str, Any]] = None
+    ) -> None:
+        self.success = success
+        self.error_message = error_message
+        self.plan_raw = plan_raw
+        self.masks = masks
+        self.prompt = prompt
+        self.plan_code = plan_code
+        self.annotated_image = annotated_image
+        self.info_dict = info_dict if info_dict is not None else {}
+
+    def __repr__(self) -> str:
+        return ("PlanResult("
+                f"success={self.success},\n "
+                f"error_message={repr(self.error_message)},\n "
+                f"plan_raw={repr(self.plan_raw)},\n "
+                f"masks={self.masks},\n "
+                f"prompt={repr(self.prompt)},\n "
+                f"plan_code={repr(self.plan_code)},\n "
+                f"annotated_image={self.annotated_image},\n "
+                f"info_dict={repr(self.info_dict)}"
+                ")"
+        )
 
 def extract_plans_and_regions(text: str, regions: list):
     # Extract code blocks. We assume there is only one code block in the generation
@@ -70,11 +105,11 @@ def extract_plans_and_regions(text: str, regions: list):
 
     index_mapping = {old_index: new_index for new_index, old_index in enumerate(used_indices)}
     for old_index, new_index in index_mapping.items():
-        text = text.replace(f'regions[{old_index}]', f'regions[{new_index}]')
+        code_block = code_block.replace(f'regions[{old_index}]', f'regions[{new_index}]')
 
     filtered_regions = [regions[index] for index in used_indices]
 
-    return text, filtered_regions
+    return code_block, filtered_regions
 
 
 class Agent():
@@ -122,7 +157,7 @@ Note:
         super().__init__(**kwargs)
 
 
-    def plan(self, prompt: str, image: Image, return_info=False):
+    def plan(self, prompt: str, image: Image.Image):
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs:
@@ -141,23 +176,23 @@ Note:
                             draw_box=False
         )
         
-        # plt.figure(figsize=(10, 10))
-        # plt.imshow(annotated_img)
-        # plt.show()
-        
-        raw_plan = self.vlm.chat(
+        plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=annotated_img, 
             meta_prompt=self.meta_prompt.format(action_space=self.action_space)
         )
         
-        plan, filtered_masks = extract_plans_and_regions(raw_plan, masks)
+        plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
 
-        if return_info:
-            info_dict = dict(annotated_img=annotated_img, raw_plan=raw_plan)
-            return plan, filtered_masks, info_dict
-        else:
-            return plan, filtered_masks
+        return PlanResult(
+            success=True,
+            plan_code=plan_code,
+            masks=filtered_masks,
+            plan_raw=plan_raw,
+            annotated_image=annotated_img,
+            prompt=prompt,
+            info_dict=dict(configs=self.configs)
+        )
 
 
 class DetVLM(Agent):
@@ -204,7 +239,7 @@ Note:
 
         super().__init__(**kwargs)
     
-    def plan(self, prompt: str, image: Image, return_info=False):
+    def plan(self, prompt: str, image: Image.Image):
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs:
@@ -227,6 +262,12 @@ Note:
         # 'box_name': 'roof',
         # 'objectness': 0.09425540268421173}, ...
         # ]
+        if len(detected_objects) == 0:
+            return PlanResult(
+                success=False, 
+                error_message="No objects were detected in the image.",
+                info_dict=dict(objects_to_detect=text_queries)
+            )
 
 
         # Draw masks
@@ -237,20 +278,24 @@ Note:
         )
         
         
-        raw_plan = self.vlm.chat(
+        plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=annotated_img, 
             meta_prompt=self.meta_prompt.format(action_space=self.action_space)
         )
         masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
 
-        plan, filtered_masks = extract_plans_and_regions(raw_plan, masks)
+        plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
 
-        if return_info:
-            info_dict = dict(annotated_img=annotated_img, detected_objects=detected_objects, raw_plan=raw_plan)
-            return plan, filtered_masks, info_dict
-        else:
-            return plan, filtered_masks
+        return PlanResult(
+            success=True,
+            plan_code=plan_code,
+            masks=filtered_masks,
+            plan_raw=plan_raw,
+            annotated_image=annotated_img,
+            prompt=prompt,
+            info_dict=dict(configs=self.configs)
+        )
 
 
 class DetLLM(Agent):
@@ -342,7 +387,7 @@ Note:
 
         return '\n'.join(markdown_list)
 
-    def plan(self, prompt: str, image: Image, return_info=False):
+    def plan(self, prompt: str, image: Image.Image):
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs:
@@ -366,24 +411,34 @@ Note:
         # 'objectness': 0.09425540268421173}, ...
         # ]
 
+        if len(detected_objects) == 0:
+            return PlanResult(
+                success=False, 
+                error_message="No objects were detected in the image.",
+                info_dict=dict(objects_to_detect=text_queries)
+            )
+
         # Covert detection results to a string
         textualized_object_list = self.textualize_detections(detected_objects, include_coordinates=self.configs["include_coordinates"])
         prompt = textualized_object_list + '\n\n' + prompt
         
-        raw_plan = self.llm.chat(
+        plan_raw = self.llm.chat(
             prompt=prompt, 
             meta_prompt=self.meta_prompt.format(action_space=self.action_space)
         )
 
         masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
 
-        plan, filtered_masks = extract_plans_and_regions(raw_plan, masks)
+        plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
 
-        if return_info:
-            info_dict = dict(detected_objects=detected_objects, raw_plan=raw_plan)
-            return plan, filtered_masks, info_dict
-        else:
-            return plan, filtered_masks
+        return PlanResult(
+            success=True,
+            plan_code=plan_code,
+            masks=filtered_masks,
+            plan_raw=plan_raw,
+            prompt=prompt,
+            info_dict=dict(configs=self.configs)
+        )
 
 
 def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None, configs=None):

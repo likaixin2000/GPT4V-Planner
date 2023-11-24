@@ -35,7 +35,7 @@ class SAM(Segmentor):
         response.raise_for_status()  # Raise an exception for HTTP errors
         return response.json()
 
-    def segment_auto_mask(self, image: Image):
+    def segment_auto_mask(self, image: Image.Image):
         """
         Automatically generate masks for the image.
         
@@ -45,7 +45,7 @@ class SAM(Segmentor):
         response = self._send_request('sam_auto_mask_generation', image)
         return self._process_response(response)
 
-    def segment_by_point_set(self, image: Image, points: list, point_labels: list):
+    def segment_by_point_set(self, image: Image.Image, points: list, point_labels: list):
         """
         Generate masks for the image based on the provided point set (in 0-1 range).
         
@@ -67,7 +67,7 @@ class SAM(Segmentor):
         )
         return self._process_response(response)
 
-    def segment_by_bboxes(self, image: Image, bboxes: list):
+    def segment_by_bboxes(self, image: Image.Image, bboxes: list):
         """
         Generate masks for the image based on the provided bounding box (in 0-1 range).
         
