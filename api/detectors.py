@@ -5,6 +5,48 @@ import requests
 
 from .utils import convert_pil_image_to_base64
 
+COMMON_OBJECTS = [
+    "refrigerator",
+    "oven",
+    "microwave",
+    "toaster",
+    "blender",
+    "coffee maker",
+    "dishwasher",
+    "pot",
+    "pan",
+    "cutting board",
+    "knife",
+    "spoon",
+    "fork",
+    "plate",
+    "bowl",
+    "cup",
+    "coaster",
+    "glass",
+    "kettle",
+    "paper towel holder",
+    "trash can",
+    "food storage container",
+    "sofa",
+    "coffee table",
+    "television",
+    "bookshelf",
+    "armchair",
+    "floor lamp",
+    "rug",
+    "picture frame",
+    "curtain",
+    "blanket",
+    "vase",
+    "indoor plant",
+    "remote control",
+    "candle",
+    "wall art",
+    "clock",
+    "magazine rack",
+]
+
 def convert_xywh_to_x1y1x2y2(xywh_box):
     """
     Converts bounding box coordinates from XYWH format to X1Y1X2Y2 format.

@@ -1,28 +1,27 @@
+from functools import partial
+from .detectors import Detector, OWLViT, COMMON_OBJECTS
+from .effectors import Effector
 
+def build_execution_env():
+    """Create tools for LLMs to call."""
+    detector = OWLViT()
+    effector = Effector()
 
-import argparse
-import datetime
-import os
-import time
+    def build_tools():
+        """Define tools here."""
+        # Perception
+        if detector:
+            detect_all_objects = partial(detector.detect_objects(text_queries=COMMON_OBJECTS))
+            detect_object = detector.detect_objects
+        # Manipulation
+        pick = effector.grasp
 
-import requests
+    tools = [
+        "detect_all_objects", 
+        "detect_object", 
+        "pick"
+    ]
 
-import PIL
-
-import openai
-
-from llava.conversation import (default_conversation, conv_templates,
-                                   SeparatorStyle)
-from llava.constants import LOGDIR
-from llava.utils import (build_logger, server_error_msg,
-    violates_moderation, moderation_msg)
-import hashlib
-
-OPENAI_KEY = os.environ.get('OPENAI_API')
-
-
-
-
-
-
-
+    env = {k: v for k, v in locals() if k in tools}
+    return env
+ 

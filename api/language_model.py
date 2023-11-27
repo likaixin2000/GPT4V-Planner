@@ -1,3 +1,5 @@
+import datetime
+import time
 import PIL
 import os
 import sys
@@ -15,6 +17,13 @@ class LanguageModel():
 
 
 # class LLaVA(ChatModel):
+#     from llava.conversation import (default_conversation, conv_templates,
+#                                     SeparatorStyle)
+#     from llava.constants import LOGDIR
+#     from llava.utils import (build_logger, server_error_msg,
+#         violates_moderation, moderation_msg)
+#     import hashlib
+#
 #     def __init__(self,
 #                  model_name="llava_llama-2",
 #                  server_addr="127.0.0.1:21002"

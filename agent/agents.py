@@ -4,54 +4,13 @@ from typing import List, Optional, Dict, Any
 from PIL import Image
 
 from api.language_model import LanguageModel
-from api.detectors import Detector
+from api.detectors import Detector, COMMON_OBJECTS
 from api.segmentors import Segmentor
 
 from .visualizer import GenericMask
 
 from .utils import resize_image, visualize_bboxes, visualize_masks
 
-COMMON_OBJECTS = [
-    "refrigerator",
-    "oven",
-    "microwave",
-    "toaster",
-    "blender",
-    "coffee maker",
-    "dishwasher",
-    "pot",
-    "pan",
-    "cutting board",
-    "knife",
-    "spoon",
-    "fork",
-    "plate",
-    "bowl",
-    "cup",
-    "coaster",
-    "glass",
-    "kettle",
-    "paper towel holder",
-    "trash can",
-    "food storage container",
-    "sofa",
-    "coffee table",
-    "television",
-    "bookshelf",
-    "armchair",
-    "floor lamp",
-    "rug",
-    "picture frame",
-    "curtain",
-    "blanket",
-    "vase",
-    "indoor plant",
-    "remote control",
-    "candle",
-    "wall art",
-    "clock",
-    "magazine rack",
-]
 
 DEFAULT_ACTION_SPACE = """
  - pick(item)
