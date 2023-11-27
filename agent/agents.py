@@ -111,7 +111,6 @@ def extract_plans_and_regions(text: str, regions: list):
 
     return code_block, filtered_regions
 
-
 class Agent():
     def __init__(self, action_space: str = DEFAULT_ACTION_SPACE) -> None:
         self.action_space = action_space
@@ -307,7 +306,7 @@ Operation list:
 {action_space}
 
 Note:
-- For any item mentioned in your answer, please use the format of `"object_name"`.
+- For any item referenced in your code, please use the format of `object="object_name"`.
 - Your code should be surrounded by a python code block "```python".
 '''
     def __init__(
@@ -436,6 +435,130 @@ Note:
             plan_code=plan_code,
             masks=filtered_masks,
             plan_raw=plan_raw,
+            prompt=prompt,
+            info_dict=dict(configs=self.configs)
+        )
+
+
+class VLMSeg(Agent):
+    meta_prompt = \
+'''
+You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. You will be given a list of objects detected which you may want to interact with. Output your plan as code.
+
+Operation list:
+{action_space}
+
+Note:
+- For any item referenced in your code, please use the format of `object="object_name"`.
+- Your code should be surrounded by a python code block "```python".
+'''
+    def __init__(self, vlm: LanguageModel, detector: Detector, segmentor: Segmentor, configs: dict = None, **kwargs):
+        if not isinstance(vlm, LanguageModel):
+            raise TypeError("`vlm` must be an instance of LanguageModel.")
+        if not isinstance(detector, Detector):
+            raise TypeError("`detector` must be an instance of Detector.")
+        if not isinstance(segmentor, Segmentor):
+            raise TypeError("`segmentor` must be an instance of Segmentor.")
+
+        self.vlm = vlm
+        self.detector = detector
+        self.segmentor = segmentor
+
+        # Default configs
+        self.configs = {
+            "img_size": 640,
+            "label_mode": "1",
+            "alpha": 0.05
+        }
+        if configs is not None:
+            self.configs = self.configs.update(configs)
+
+        super().__init__(**kwargs)
+
+    def extract_objects_of_interest_from_vlm_response(self, plan_raw: str):
+        # Extract code blocks. We assume there is only one code block in the generation
+        code_block = re.findall(r'```python(.*?)```', plan_raw, re.DOTALL)[0]
+
+        # Use regular expression to find all occurrences of region[index]
+        object_names = re.findall(r'object=\"(.+)\"', code_block)
+
+        object_names = list(set(int(index) for index in object_names))
+
+        return code_block, object_names
+
+    def plan(self, prompt: str, image: Image.Image):
+        # Resize the image if necessary
+        processed_image = image
+        if "img_size" in self.configs:
+            processed_image = resize_image(image, self.configs["img_size"])
+
+        # Generate a textual response from VLM
+        plan_raw = self.vlm.chat(
+            prompt=prompt, 
+            image=processed_image, 
+            meta_prompt=self.meta_prompt.format(action_space=self.action_space)
+        )
+
+        # Extract objects of interest from VLM's response
+        plan_code, objects_of_interest = self.extract_objects_of_interest_from_vlm_response(plan_raw)
+
+        # Detect only the objects of interest
+        detected_objects = self.detector.detect_objects(
+            processed_image,
+            objects_of_interest,
+            bbox_score_top_k=20,
+            bbox_conf_threshold=0.3
+        )
+
+        # (kaixin) NOTE: This requires the object names to be unique.
+        # Filter and select boxes with the correct name and highest score per name
+        best_boxes = {}
+        for det in detected_objects:
+            box_name = det["box_name"]
+            if box_name not in best_boxes or det["score"] > best_boxes[box_name]["score"]:
+                best_boxes[box_name] = det
+
+        # Check if any object of interest is missing in the detected objects
+        missing_objects = set(objects_of_interest) - set(best_boxes.keys())
+        if missing_objects:
+            return PlanResult(
+                success=False,
+                error_message=f"Missing objects that were not detected or had no best box: {', '.join(missing_objects)}",
+                info_dict=dict(objects_to_detect=objects_of_interest, found_objects=list(best_boxes.keys()), missing_objects=list(missing_objects))
+            )
+
+        # Arrange boxes in the order of objects_of_interest
+        boxes_of_interest = [best_boxes[name] for name in objects_of_interest]
+
+        
+        # Draw masks
+        annotated_img = visualize_bboxes(
+            image,
+            bboxes=[obj['box'] for obj in boxes_of_interest], 
+            alpha=self.configs["alpha"]
+        )
+
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
+
+        # Generate the final plan using the VLM with the annotated image
+        # final_plan = self.vlm.chat(
+        #     prompt=prompt, 
+        #     image=annotated_img, 
+        #     meta_prompt=self.meta_prompt.format(action_space=self.action_space)
+        # )
+
+        # plan_code, filtered_masks = extract_plans_and_regions(final_plan, masks)
+
+        # Replace object names with region masks
+        for index, object_name in enumerate(objects_of_interest):
+            plan_code = plan_code.replace(object_name, f"regions[{str(index)}]")
+
+        return PlanResult(
+            success=True,
+            plan_code=plan_code,
+            masks=masks,
+            plan_raw=plan_raw,
+            annotated_image=annotated_img,
             prompt=prompt,
             info_dict=dict(configs=self.configs)
         )
