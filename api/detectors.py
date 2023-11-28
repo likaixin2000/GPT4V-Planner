@@ -45,6 +45,11 @@ COMMON_OBJECTS = [
     "wall art",
     "clock",
     "magazine rack",
+    "phone",
+    "pen",
+    "marker",
+    "laptop",
+    "keyboard"
 ]
 
 def convert_xywh_to_x1y1x2y2(xywh_box):

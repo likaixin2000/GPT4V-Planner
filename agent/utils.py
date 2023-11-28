@@ -8,7 +8,7 @@ from .visualizer import Visualizer
 def resize_image(image: Image, size) -> Image:
     transform = transforms.Compose([transforms.Resize(int(size), interpolation=Image.BICUBIC)])
     processed_image = transform(image)
-    return image
+    return processed_image
 
 def visualize_bboxes(image: Image, bboxes: list, alpha=0.7) -> Image:
     if len(bboxes) == 0:

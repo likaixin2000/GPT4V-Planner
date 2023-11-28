@@ -227,11 +227,10 @@ Note:
                 info_dict=dict(objects_to_detect=text_queries)
             )
 
-
         # Draw masks
         annotated_img = visualize_bboxes(
             image,
-            bboxes=[obj['box'] for obj in detected_objects], 
+            bboxes=[obj['bbox'] for obj in detected_objects], 
             alpha=self.configs["alpha"]
         )
         
@@ -241,7 +240,7 @@ Note:
             image=annotated_img, 
             meta_prompt=self.meta_prompt.format(action_space=self.action_space)
         )
-        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[object["bbox"]] for object in detected_objects])
 
         plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
 

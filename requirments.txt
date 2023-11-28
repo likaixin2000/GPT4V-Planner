@@ -1,0 +1,11 @@
+torch
+torchvision
+opencv-python
+pyyaml
+scikit-learn
+timm
+numpy
+pycocotools
+shapely
+scikit-image
+pillow
