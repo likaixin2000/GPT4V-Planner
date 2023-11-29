@@ -117,6 +117,7 @@ class SAM(Segmentor):
         for bbox_set in bboxes:
             assert len(bbox_set) == 1, "Only one bounding box allowed for each prediction."
             bbox = bbox_set[0]
+            # Need to normailize the bboxes.
             scaled_set = [[int(bbox[0] * width), int(bbox[1] * height), int(bbox[2] * width), int(bbox[3] * height)]]
             scaled_bboxes.append(scaled_set)
 

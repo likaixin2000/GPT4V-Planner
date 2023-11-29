@@ -65,8 +65,10 @@ def extract_plans_and_regions(text: str, regions: list):
     index_mapping = {old_index: new_index for new_index, old_index in enumerate(used_indices)}
     for old_index, new_index in index_mapping.items():
         code_block = code_block.replace(f'regions[{old_index}]', f'regions[{new_index}]')
-
-    filtered_regions = [regions[index] for index in used_indices]
+    try:
+        filtered_regions = [regions[index] for index in used_indices]
+    except IndexError as e:  # Invalid index is used
+        return None, None
 
     return code_block, filtered_regions
 
@@ -85,6 +87,7 @@ Operation list:
 
 Note:
 - For any item mentioned in your answer, please use the format of `regions[number]`.
+- Do not define the operations or regions in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
 
@@ -141,6 +144,15 @@ Note:
         )
         
         plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
+        if plan_code is None:
+            return PlanResult(
+                success=False, 
+                error_message="Invalid or no code is generated.",
+                plan_raw=plan_raw,
+                annotated_image=annotated_img,
+                prompt=prompt,
+                info_dict=dict(configs=self.configs)
+            )
 
         return PlanResult(
             success=True,
@@ -164,6 +176,7 @@ Operation list:
 
 Note:
 - For any item mentioned in your answer, please use the format of `regions[number]`.
+- Do not define the operations or regions in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
 
@@ -190,7 +203,7 @@ Note:
         self.configs = {
             "img_size": 640,
             "label_mode": "1",
-            "alpha": 0.05
+            "alpha": 0.75
         }
         if configs is not None:
             self.configs = self.configs.update(configs)            
@@ -229,7 +242,7 @@ Note:
 
         # Draw masks
         annotated_img = visualize_bboxes(
-            image,
+            processed_image,
             bboxes=[obj['bbox'] for obj in detected_objects], 
             alpha=self.configs["alpha"]
         )
@@ -240,10 +253,20 @@ Note:
             image=annotated_img, 
             meta_prompt=self.meta_prompt.format(action_space=self.action_space)
         )
-        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[object["bbox"]] for object in detected_objects])
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[obj['bbox']] for obj in detected_objects])
 
         plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
 
+        if plan_code is None:
+            return PlanResult(
+                success=False, 
+                error_message="Invalid or no code is generated.",
+                plan_raw=plan_raw,
+                annotated_image=annotated_img,
+                prompt=prompt,
+                info_dict=dict(configs=self.configs)
+            )
+        
         return PlanResult(
             success=True,
             plan_code=plan_code,
@@ -265,6 +288,7 @@ Operation list:
 
 Note:
 - For any item referenced in your code, please use the format of `object="object_name"`.
+- Do not define the operations in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
     def __init__(
@@ -336,7 +360,7 @@ Note:
         for obj in detected_objects:
             box_name = obj['box_name']
             if include_coordinates:
-                box = obj['box']
+                box = obj['bbox']
                 box_coords = f" (coordinates: ({box[0]:.2f}, {box[1]:.2f}), ({box[2]:.2f}, {box[3]:.2f}))"
                 markdown_list.append(f"- {box_name}{box_coords}")
             else:
@@ -384,7 +408,7 @@ Note:
             meta_prompt=self.meta_prompt.format(action_space=self.action_space)
         )
 
-        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
+        masks = self.segmentor.segment_by_bboxes(image=processed_image, bboxes=[[obj['bbox']] for obj in detected_objects])
 
         plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
 
@@ -394,7 +418,7 @@ Note:
             masks=filtered_masks,
             plan_raw=plan_raw,
             prompt=prompt,
-            info_dict=dict(configs=self.configs)
+            info_dict=dict(configs=self.configs, detected_objects=detected_objects)
         )
 
 
@@ -426,7 +450,7 @@ Note:
         self.configs = {
             "img_size": 640,
             "label_mode": "1",
-            "alpha": 0.05
+            "alpha": 0.75
         }
         if configs is not None:
             self.configs = self.configs.update(configs)
@@ -491,8 +515,8 @@ Note:
         
         # Draw masks
         annotated_img = visualize_bboxes(
-            image,
-            bboxes=[obj['box'] for obj in boxes_of_interest], 
+            processed_image,
+            bboxes=[obj['bbox'] for obj in boxes_of_interest], 
             alpha=self.configs["alpha"]
         )
 

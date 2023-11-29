@@ -52,18 +52,18 @@ COMMON_OBJECTS = [
     "keyboard"
 ]
 
-def convert_xywh_to_x1y1x2y2(xywh_box):
+def convert_cxcywh_to_x1y1x2y2(cxcywh_box):
     """
-    Converts bounding box coordinates from XYWH format to X1Y1X2Y2 format.
+    Converts bounding box coordinates from cXcYWH format to X1Y1X2Y2 format.
 
     Parameters:
-    xywh_box (list or tuple): Bounding box in XYWH format [x, y, width, height].
+    xywh_box (list or tuple): Bounding box in XYWH format [cx, cy, width, height].
 
     Returns:
     list: Bounding box in X1Y1X2Y2 format [x1, y1, x2, y2].
     """
-    x, y, width, height = xywh_box
-    return [x, y, x + width, y + height]
+    cx, cy, w, h = cxcywh_box
+    return [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
 
 class Detector():
     pass
@@ -90,7 +90,7 @@ class OWLViT(Detector):
         """
 
         # Convert image to base64
-        img_b64_str = convert_pil_image_to_base64(image)
+        img_b64_str = convert_pil_image_to_base64(image.convert('RGB'))
         # Constructing the POST request
         payload = {
             "text_queries": text_queries,
@@ -115,8 +115,8 @@ class OWLViT(Detector):
         box_names = resp_data['box_names']
         objectnesses = resp_data['objectnesses']
 
-        # Convert bbox format to x1y1x2y2
-        bboxes = [convert_xywh_to_x1y1x2y2(bbox) for bbox in bboxes]
+        # Convert bbox format to x1y1x2y2. Value range is in 0-1, so it is fine.
+        bboxes = [convert_cxcywh_to_x1y1x2y2(bbox) for bbox in bboxes]
         
         
         # Assert that all lists have the same length

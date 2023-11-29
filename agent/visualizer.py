@@ -925,7 +925,7 @@ class Visualizer:
         )
         return self.output
 
-    def draw_box(self, box_coord, alpha=0.5, edge_color="g", line_style="-"):
+    def draw_box(self, box_coord, alpha=0.75, edge_color="g", line_style="-"):
         """
         Args:
             box_coord (tuple): a tuple containing x0, y0, x1, y1 coordinates, where x0 and y0
@@ -943,7 +943,7 @@ class Visualizer:
         width = x1 - x0
         height = y1 - y0
 
-        linewidth = max(self._default_font_size / 12, 1)
+        linewidth = max(self._default_font_size / 12, 2)
 
         self.output.ax.add_patch(
             mpl.patches.Rectangle(
@@ -1179,7 +1179,7 @@ class Visualizer:
 
     ######### NEW #############
     def draw_bbox_with_number(
-        self, bbox, color=None, *, text=None, label_mode='1', alpha=0.75, area_threshold=10
+        self, bbox, color=None, *, text=None, label_mode='1', alpha=0.95, area_threshold=10
     ):
         """
         Args:

@@ -49,7 +49,7 @@ def sam_auto_mask_generation():
     image = Image.open(io.BytesIO(base64.b64decode(image_base64)))
 
     # Call SAM to generate masks
-    outputs = generator(image, points_per_batch=15)
+    outputs = generator(image, points_per_batch=128)
     masks = outputs["masks"]
 
     results = process_masks_for_response(masks)

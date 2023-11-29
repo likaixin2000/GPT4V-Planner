@@ -34,12 +34,31 @@ jitted = jax.jit(module.apply, static_argnames=('train',))
 
 
 def predict_boxes(image, text_queries):
+    # Pre-processing
+    # Pad to square with gray pixels on bottom and right:
+    h, w, _ = image.shape
+    size = max(h, w)
+    image_padded = np.pad(
+        image, ((0, size - h), (0, size - w), (0, 0)), constant_values=0.5
+    )
+    padded_h, padded_w, _ = image_padded.shape
+    # Scale factors
+    scale_h = padded_h / h
+    scale_w = padded_w / w
+    print(scale_h, scale_w)
+
+    # Resize to model input size:
+    input_image = skimage.transform.resize(
+        image_padded,
+        (config.dataset_configs.input_size, config.dataset_configs.input_size),
+        anti_aliasing=True
+    )
+
     tokenized_queries = np.array([
         module.tokenize(q, config.dataset_configs.max_query_length)
             for q in text_queries
         ]
     )
-
     tokenized_queries = np.pad(
         tokenized_queries,
         pad_width=((0, 100 - len(text_queries)), (0, 0)),
@@ -47,7 +66,7 @@ def predict_boxes(image, text_queries):
     )
     predictions = jitted(
         variables,
-        image[None, ...],
+        input_image[None, ...],
         tokenized_queries[None, ...],
         train=False
     )
@@ -55,14 +74,20 @@ def predict_boxes(image, text_queries):
     # Remove batch dimension and convert to numpy
     predictions = jax.tree_util.tree_map(lambda x: np.array(x[0]), predictions)
 
-    logits = predictions['pred_logits'][..., :len(text_queries)]  # Remove padding.
+    logits = predictions['pred_logits'][..., :len(text_queries)]  # Remove text padding.
     scores = sigmoid(np.max(logits, axis=-1))
     labels = np.argmax(predictions['pred_logits'], axis=-1)
     box_names = np.array(text_queries)[labels]
-    boxes = predictions['pred_boxes']
     objectnesses = sigmoid(predictions['objectness_logits'])
 
-    return scores, boxes, box_names, objectnesses
+    # Rescale the bboxes because they include the paddings of the image.absscale_w = original_width / padded_size
+    bboxes = predictions['pred_boxes']
+    rescaled_boxes = [[cx * scale_w, cy * scale_h, w * scale_w, h * scale_h] for cx, cy, w, h in bboxes]
+
+    # Convert rescaled_boxes to numpy array if needed
+    rescaled_boxes = np.array(rescaled_boxes)
+
+    return scores, rescaled_boxes, box_names, objectnesses
 
 def keep_top_k(*args, top_k, key, ):
     top_k_indices = np.argpartition(key, -top_k)[-top_k:]
@@ -89,34 +114,19 @@ def detect_objects():
     image_uint8 = skimage_io.imread(image_data)
     image = image_uint8.astype(np.float32) / 255.0
 
-    # Pre-processing
-    # Pad to square with gray pixels on bottom and right:
-    h, w, _ = image.shape
-    size = max(h, w)
-    image_padded = np.pad(
-        image, ((0, size - h), (0, size - w), (0, 0)), constant_values=0.5
-    )
-
-    # Resize to model input size:
-    input_image = skimage.transform.resize(
-        image_padded,
-        (config.dataset_configs.input_size, config.dataset_configs.input_size),
-        anti_aliasing=True
-    )
-
-    scores, boxes, box_names, objectnesses = predict_boxes(input_image, text_queries)
+    scores, bboxes, box_names, objectnesses = predict_boxes(image, text_queries)
 
     # Postprocess
     if "bbox_score_top_k" in query_data:
-        scores, boxes, box_names, objectnesses = keep_top_k(
-            scores, boxes, box_names, objectnesses,
+        scores, bboxes, box_names, objectnesses = keep_top_k(
+            scores, bboxes, box_names, objectnesses,
             top_k=query_data["bbox_score_top_k"],
             key=scores,
         )
 
     if "bbox_conf_threshold" in query_data:
-        scores, boxes, box_names, objectnesses = keep_by_threshold(
-            scores, boxes, box_names, objectnesses,
+        scores, bboxes, box_names, objectnesses = keep_by_threshold(
+            scores, bboxes, box_names, objectnesses,
             threshold=query_data["bbox_conf_threshold"],
             key=scores
         )
@@ -124,7 +134,7 @@ def detect_objects():
     # Return results as JSON
     return jsonify({
         'scores': scores.tolist(), 
-        'bboxes': boxes.tolist(), 
+        'bboxes': bboxes.tolist(), 
         'box_names': box_names.tolist(),
         'objectnesses': objectnesses.tolist()
     })
