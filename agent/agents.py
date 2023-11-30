@@ -1,3 +1,4 @@
+import json
 import re
 from typing import List, Optional, Dict, Any
 
@@ -13,9 +14,10 @@ from .utils import resize_image, visualize_bboxes, visualize_masks
 
 
 DEFAULT_ACTION_SPACE = """
- - pick(item)
- - place(item, orientation)
- - open(item)
+ - pick(object)
+ - place(object, orientation). 
+   - `orientation` in ['inside', 'on_top_of', 'left', 'right', 'up', 'down']
+ - open(object)
 """
 
 class PlanResult:
@@ -54,7 +56,11 @@ class PlanResult:
 
 def extract_plans_and_regions(text: str, regions: list):
     # Extract code blocks. We assume there is only one code block in the generation
-    code_block = re.findall(r'```python(.*?)```', text, re.DOTALL)[0]
+    code_blocks = re.findall(r'```python(.*?)```', text, re.DOTALL)
+    if not code_blocks:
+        return None, None
+
+    code_block = code_blocks[0]
 
     # Use regular expression to find all occurrences of region[index]
     matches = re.findall(r'regions\[(\d+)\]', code_block)
@@ -425,13 +431,18 @@ Note:
 class VLMSeg(Agent):
     meta_prompt = \
 '''
-You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. You will be given a list of objects detected which you may want to interact with. Output your plan as code.
+You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. 
+You need to output your plan as python code.
+After writing the code, you should also tell me the objects you want to interact with in your code. To reduce ambiguity, you should try to use different but simple and common names to refer to a single object. 
+The object list should be a valid json format, for example, [{"name": "marker", "aliases": ["pen", "pencil"]}, {"name": "remote", "aliases": ["remote controller", "controller"]}, ...]. "aliases" should be an empty list if there are no aliases.
 
 Operation list:
 {action_space}
 
 Note:
+- Do not redefine functions in the operation list.
 - For any item referenced in your code, please use the format of `object="object_name"`.
+- Your object list should be encompassed by a json code block "```json".
 - Your code should be surrounded by a python code block "```python".
 '''
     def __init__(self, vlm: LanguageModel, detector: Detector, segmentor: Segmentor, configs: dict = None, **kwargs):
@@ -459,14 +470,21 @@ Note:
 
     def extract_objects_of_interest_from_vlm_response(self, plan_raw: str):
         # Extract code blocks. We assume there is only one code block in the generation
-        code_block = re.findall(r'```python(.*?)```', plan_raw, re.DOTALL)[0]
+        code_blocks = re.findall(r'```python(.*?)```', plan_raw, re.DOTALL)
+        json_blocks = re.findall(r'```json(.*?)```', plan_raw, re.DOTALL)
+        if not code_blocks or not json_blocks:
+            return None, None
+        
+        code_block = code_blocks[0]
+        json_block = json_blocks[0]
+        object_names_and_aliases = json.loads(json_block)
 
         # Use regular expression to find all occurrences of region[index]
-        object_names = re.findall(r'object=\"(.+)\"', code_block)
+        # object_names = re.findall(r'object=\"(.+)\"', code_block)
 
-        object_names = list(set(int(index) for index in object_names))
+        # object_names = list(set(obj_name for obj_name in object_names))
 
-        return code_block, object_names
+        return code_block, object_names_and_aliases
 
     def plan(self, prompt: str, image: Image.Image):
         # Resize the image if necessary
@@ -482,7 +500,16 @@ Note:
         )
 
         # Extract objects of interest from VLM's response
-        plan_code, objects_of_interest = self.extract_objects_of_interest_from_vlm_response(plan_raw)
+        plan_code, object_names_and_aliases = self.extract_objects_of_interest_from_vlm_response(plan_raw)
+        if objects_of_interest is None:
+            return PlanResult(
+                success=False,
+                error_message=f"Could not extract objects of intereset.",
+                plan_raw=plan_raw,
+                info_dict=dict(configs=self.configs)
+            )
+        
+        objects_of_interest = [obj["name"] for obj in object_names_and_aliases]
 
         # Detect only the objects of interest
         detected_objects = self.detector.detect_objects(
@@ -506,7 +533,12 @@ Note:
             return PlanResult(
                 success=False,
                 error_message=f"Missing objects that were not detected or had no best box: {', '.join(missing_objects)}",
-                info_dict=dict(objects_to_detect=objects_of_interest, found_objects=list(best_boxes.keys()), missing_objects=list(missing_objects))
+                info_dict=dict(
+                    objects_to_detect=objects_of_interest, 
+                    found_objects=list(best_boxes.keys()), 
+                    missing_objects=list(missing_objects), 
+                    info_dict=dict(configs=self.configs)
+                )
             )
 
         # Arrange boxes in the order of objects_of_interest
@@ -575,10 +607,13 @@ def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None,
         return SegVLM(segmentor=segmentor, vlm=vlm, configs=configs)
 
     elif agent_type == 'DetVLM':
-        return DetVLM(segmentor=segmentor,detector=detector, vlm=vlm, configs=configs)
+        return DetVLM(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
 
     elif agent_type == 'DetLLM':
-        return DetLLM(segmentor=segmentor,detector=detector, llm=llm, configs=configs)
+        return DetLLM(segmentor=segmentor, detector=detector, llm=llm, configs=configs)
+
+    elif agent_type == 'VLMSeg':
+        return VLMSeg(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
 
     else:
         raise ValueError("Unknown agent type.")
