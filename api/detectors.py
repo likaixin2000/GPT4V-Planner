@@ -69,7 +69,7 @@ class Detector():
     pass
 
 class OWLViT(Detector):
-    server_url = "http://ml4.d2.comp.nus.edu.sg:55570/owl_detect"
+    server_url = "http://phoenix0.d2.comp.nus.edu.sg:55570/owl_detect"
 
     def __init__(self,):
         pass

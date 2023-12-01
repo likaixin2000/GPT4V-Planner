@@ -10,7 +10,7 @@ class Segmentor():
     pass
 
 class SAM(Segmentor):
-    server_url = "http://ml4.d2.comp.nus.edu.sg:55563"
+    server_url = "http://phoenix0.d2.comp.nus.edu.sg:55563"
 
     def _send_request(self, endpoint: str, image: Image, additional_data: dict = None):
         """

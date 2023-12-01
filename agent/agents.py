@@ -404,6 +404,13 @@ Note:
                 error_message="No objects were detected in the image.",
                 info_dict=dict(objects_to_detect=text_queries)
             )
+        
+        # Draw masks
+        annotated_img = visualize_bboxes(
+            processed_image,
+            bboxes=[obj['bbox'] for obj in detected_objects], 
+            alpha=self.configs["alpha"]
+        )
 
         # Covert detection results to a string
         textualized_object_list = self.textualize_detections(detected_objects, include_coordinates=self.configs["include_coordinates"])
@@ -422,6 +429,7 @@ Note:
             success=True,
             plan_code=plan_code,
             masks=filtered_masks,
+            annotated_image=annotated_img,
             plan_raw=plan_raw,
             prompt=prompt,
             info_dict=dict(configs=self.configs, detected_objects=detected_objects)

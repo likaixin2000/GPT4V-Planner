@@ -199,7 +199,6 @@ class GPT4(LanguageModel):
         # Get OpenAI API Key from environment variable
         api_key = os.environ["OPENAI_API_KEY"]
 
-        from openai import OpenAI
 
         client = OpenAI(
             api_key=api_key,
