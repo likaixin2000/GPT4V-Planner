@@ -10,6 +10,7 @@ class SimpleExecutor:
         """
         self.environment = environment
 
+
     def execute_plan(self, plan_code):
         """
         Execute the plan code within the Python environment held by the executor.
@@ -69,7 +70,7 @@ class Executor:
         ```
 
     """
-    def __init__(self, environment, timeout=None):
+    def __init__(self, environment, timeout=None, pause_every_line=False):
         """
         Initialize the Executor instance.
 
@@ -95,12 +96,19 @@ class Executor:
         self.plan_code_lines = None
         self.compiled_code = None  # Used to identify current python frame
 
+        self.pause_every_line = pause_every_line
+
+
     def _trace_function(self, frame, event, arg):
         if frame.f_code == self.compiled_code and event == "line":
             self.last_line = frame.f_lineno
-            if self.plan_code_lines:
-                line = self.plan_code_lines[self.last_line - 1].strip()
-                print(f"(Executor) Executing line {self.last_line}: {line}")
+            line = self.plan_code_lines[self.last_line - 1].strip()
+            if self.pause_every_line:
+                user_input = input(f"{Fore.YELLOW}(Executor) Next line to execute (press enter or 'y' to continue): {Fore.CYAN}{line}{Style.RESET_ALL}")
+                if user_input not in ['', 'y', 'yes']:
+                    raise KeyboardInterrupt
+
+            print(f"{Fore.GREEN}(Executor) Executing line {self.last_line}: {Fore.CYAN}{line}{Style.RESET_ALL}")
         return self._trace_function
 
     def _execute_with_trace(self, plan_code: str):
@@ -115,10 +123,8 @@ class Executor:
         finally:
             sys.settrace(None)
 
-    def execute_plan(self, plan_code: str, pre_execution_hook=None, post_execution_hook=None):
-        if pre_execution_hook:
-            pre_execution_hook()
 
+    def execute_plan(self, plan_code: str):
         if self.timeout:
             thread = threading.Thread(target=self._execute_with_trace, args=(plan_code,))
             thread.start()
@@ -127,7 +133,4 @@ class Executor:
                 print("Execution timed out.", file=sys.stderr)
         else:
             self._execute_with_trace(plan_code)
-
-        if post_execution_hook:
-            post_execution_hook()
 

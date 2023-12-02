@@ -69,10 +69,9 @@ class Detector():
     pass
 
 class OWLViT(Detector):
-    server_url = "http://phoenix0.d2.comp.nus.edu.sg:55570/owl_detect"
 
-    def __init__(self,):
-        pass
+    def __init__(self, server_url="http://phoenix0.d2.comp.nus.edu.sg:55570/owl_detect"):
+        self.server_url = server_url
 
     def detect_objects(self, image: Image.Image, text_queries: list[str], bbox_score_top_k=20, bbox_conf_threshold=0.5):
         """

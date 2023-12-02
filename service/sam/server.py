@@ -1,3 +1,4 @@
+import argparse
 import base64
 import io
 import pickle
@@ -118,7 +119,9 @@ def sam_mask_by_bbox():
 
 
 if __name__ == '__main__':
-    # Set custom IP and port
-    ip = "ml4.d2.comp.nus.edu.sg"  # Use "0.0.0.0" to run on your machine's IP address
-    port = 55563     # You can change this to any desired port
-    app.run(host=ip, port=port, debug=True, use_reloader=False)
+    parser = argparse.ArgumentParser(description='SAM Server')
+    parser.add_argument('--ip', default='0.0.0.0', type=str, help='IP address to run the app on. Use "0.0.0.0" for your machine\'s IP address')
+    parser.add_argument('--port', default=55563, type=int, help='Port number to run the app on')
+    args = parser.parse_args()
+
+    app.run(host=args.ip, port=args.port, debug=True, use_reloader=False)
