@@ -6,6 +6,7 @@ import sys
 import json
 import requests
 
+from openai import OpenAI
 from .utils import convert_pil_image_to_base64
 
 class LanguageModel():
@@ -143,47 +144,49 @@ class GPT4V(LanguageModel):
         super().__init__(
             support_vision=True
         )
+    def __init__(self, model="gpt-4-vision-preview"):
+        self.model = model
+
+        super().__init__(
+            support_vision=True
+        )
 
     def chat(self, prompt, image, meta_prompt=""):
         base64_image = convert_pil_image_to_base64(image)
 
         # Get OpenAI API Key from environment variable
         api_key = os.environ["OPENAI_API_KEY"]
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
-        payload = {
-            "model": self.model,
-            "messages": [
+        client = OpenAI(
+            api_key=api_key,
+        )
+
+        response = client.chat.completions.create(
+        model="gpt-4-vision-preview",
+        messages=[
             {
                 "role": "system",
                 "content": [
-                    meta_prompt
-                ]
-            }, 
+                    {"type": "text", "text": meta_prompt}
+                ],
+            },
             {
                 "role": "user",
                 "content": [
-                {
-                    "type": "text",
-                    "text": prompt, 
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_image}"
-                    }
-                }
-                ]
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}",
+                        },
+                    },
+                ],
             }
-            ],
-            "max_tokens": 800
-        }
+        ],
+        max_tokens=500,
+        )
         
-        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        res = response.json()['choices'][0]['message']['content']
-        return res
+        ret = response.choices[0]['message']['content']
+        return ret
 
 
 class GPT4(LanguageModel):
@@ -195,7 +198,6 @@ class GPT4(LanguageModel):
         )
 
     def chat(self, prompt, meta_prompt=""):
-        from openai import OpenAI
         # Get OpenAI API Key from environment variable
         api_key = os.environ["OPENAI_API_KEY"]
 

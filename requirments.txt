@@ -8,4 +8,4 @@ numpy
 pycocotools
 shapely
 scikit-image
-pillow
+pillow==9.5.0

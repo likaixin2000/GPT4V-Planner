@@ -14,10 +14,10 @@ from .utils import resize_image, visualize_bboxes, visualize_masks
 
 
 DEFAULT_ACTION_SPACE = """
- - pick(object)
- - place(object, orientation). 
+ - pick(obj)
+ - place(obj, orientation). 
    - `orientation` in ['inside', 'on_top_of', 'left', 'right', 'up', 'down']
- - open(object)
+ - open(obj)
 """
 
 class PlanResult:
@@ -114,7 +114,7 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": 640,
+            "img_size": None,
             "label_mode": "1",
             "alpha": 0.05
         }
@@ -207,7 +207,7 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": 640,
+            "img_size": None,
             "label_mode": "1",
             "alpha": 0.75
         }
@@ -318,7 +318,7 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": 640,
+            "img_size": None,
             "include_coordinates": True
         }
         # Configs
@@ -467,7 +467,7 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": 640,
+            "img_size": None,
             "label_mode": "1",
             "alpha": 0.75
         }
@@ -631,7 +631,7 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": 640,
+            "img_size": None,
             "label_mode": "1",
             "alpha": 0.75
         }
@@ -811,7 +811,7 @@ def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None,
         return DetLLM(segmentor=segmentor, detector=detector, llm=llm, configs=configs)
 
     elif agent_type == 'VLMSeg':
-        return VLMSeg(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+        return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
 
     else:
         raise ValueError("Unknown agent type.")
