@@ -184,8 +184,7 @@ class GPT4V(LanguageModel):
         ],
         max_tokens=500,
         )
-        
-        ret = response.choices[0]['message']['content']
+        ret = response.choices[0].message.content
         return ret
 
 

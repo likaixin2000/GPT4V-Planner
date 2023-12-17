@@ -72,7 +72,7 @@ def extract_plans_and_regions(text: str, regions: list):
     for old_index, new_index in index_mapping.items():
         code_block = code_block.replace(f'regions[{old_index}]', f'regions[{new_index}]')
     try:
-        filtered_regions = [regions[index] for index in used_indices]
+        filtered_regions = [regions[index - 1] for index in used_indices]  # indices starts from 1 !!!!!
     except IndexError as e:  # Invalid index is used
         return None, None
 
@@ -134,13 +134,14 @@ Note:
 
         # Draw masks
         # sorted_masks = sorted(masks, key=(lambda x: x['area']), reverse=True)
-        annotated_img = visualize_masks(processed_image, 
-                            annotations=[anno["segmentation"] for anno in masks],
-                            label_mode=self.configs["label_mode"],
-                            alpha=self.configs["alpha"],
-                            draw_mask=False, 
-                            draw_mark=True, 
-                            draw_box=False
+        annotated_img = visualize_masks(
+            processed_image, 
+            annotations=[anno["segmentation"] for anno in masks],
+            label_mode=self.configs["label_mode"],
+            alpha=self.configs["alpha"],
+            draw_mask=False, 
+            draw_mark=True, 
+            draw_box=False
         )
         
         plan_raw = self.vlm.chat(
@@ -319,6 +320,7 @@ Note:
         # Default configs
         self.configs = {
             "img_size": None,
+            "alpha": 0.7,
             "include_coordinates": True
         }
         # Configs
@@ -442,7 +444,7 @@ class VLMDet(Agent):
 You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. 
 You need to output your plan as python code.
 After writing the code, you should also tell me the objects you want to interact with in your code. To reduce ambiguity, you should try to use different but simple and common names to refer to a single object. 
-The object list should be a valid json format, for example, [{"name": "marker", "aliases": ["pen", "pencil"]}, {"name": "remote", "aliases": ["remote controller", "controller"]}, ...]. "aliases" should be an empty list if there are no aliases.
+The object list should be a valid json format, for example, [{{"name": "marker", "aliases": ["pen", "pencil"]}}, {{"name": "remote", "aliases": ["remote controller", "controller"]}}, ...]. "aliases" should be an empty list if there are no aliases.
 
 Operation list:
 {action_space}
@@ -593,7 +595,7 @@ class VLMDetInspect(Agent):
 You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. 
 You need to output your plan as python code.
 After writing the code, you should also tell me the objects you want to interact with in your code. To reduce ambiguity, you should try to use different but simple and common names to refer to a single object. 
-The object list should be a valid json format, for example, [{"name": "marker", "aliases": ["pen", "pencil"]}, {"name": "remote", "aliases": ["remote controller", "controller"]}, ...]. "aliases" should be an empty list if there are no aliases.
+The object list should be a valid json format, for example, [{{"name": "marker", "aliases": ["pen", "pencil"]}}, {{"name": "remote", "aliases": ["remote controller", "controller"]}}, ...]. "aliases" should be an empty list if there are no aliases.
 
 Operation list:
 {action_space}
@@ -673,6 +675,7 @@ Note:
 
         # Extract objects of interest from VLM's response
         plan_code, object_names_and_aliases = self.extract_objects_of_interest_from_vlm_response(plan_raw)
+        objects_of_interest = [obj["name"] for obj in object_names_and_aliases]
         if objects_of_interest is None:
             return PlanResult(
                 success=False,
@@ -680,7 +683,7 @@ Note:
                 info_dict=dict(configs=self.configs, plan_raw_before_inspect=plan_raw)
             )
         
-        objects_of_interest = [obj["name"] for obj in object_names_and_aliases]
+
 
         # Detect only the objects of interest
         detected_objects = self.detector.detect_objects(
@@ -813,6 +816,12 @@ def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None,
     elif agent_type == 'VLMSeg':
         return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
 
+    elif agent_type == 'VLMDet':
+        return VLMDet(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+
+    elif agent_type == 'VLMDetInspect':
+        return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+    
     else:
         raise ValueError("Unknown agent type.")
     

@@ -1,3 +1,4 @@
+import random
 from environment import Environment
 import time
 import numpy as np
@@ -6,7 +7,14 @@ import os
 import pybullet as p
 
 
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+
 def setup_test_simulation(display=True):
+    set_seed(114514)
+
+    
     # IMPORTANT: set disp=False if you don't have a graphics interface
     # Try running `sudo startx`, and connect with `ssh -X <dest>`
     my_env = Environment(disp=display)  
@@ -17,7 +25,7 @@ def setup_test_simulation(display=True):
     # ------------------------------
     # Add bowls.
     bowl_size = (0.12, 0.12, 0)
-    n_bowls = 0
+    n_bowls = 1
     bowl_urdf = 'bowl/bowl.urdf'
     for _ in range(n_bowls):
         _,depth,_ = my_env.render(my_env.camera_config_up)
@@ -41,8 +49,6 @@ def setup_test_simulation(display=True):
     n_distractors = 0
     while n_distractors < 10:
         is_block = np.random.rand() > 0.5
-        if not is_block:
-            continue
         urdf = block_urdf if is_block else bowl_urdf
         size = block_size if is_block else bowl_size
         colors = block_colors if is_block else bowl_colors

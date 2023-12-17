@@ -1,19 +1,27 @@
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "simulation"))
+import time
 
+import numpy as np
 from PIL import Image
 import cv2
 
 from environments import Environment, PlanExecutionError
 
 def find_mask_center_point(binary_mask):
+    binary_mask = (binary_mask > 0).astype(np.uint8) * 255  # Make cv2 happy
+    height, width = binary_mask.shape
     binary_mask = np.pad(binary_mask, ((1, 1), (1, 1)), 'constant')
     mask_dt = cv2.distanceTransform(binary_mask, cv2.DIST_L2, 0)
     mask_dt = mask_dt[1:-1, 1:-1]
     max_dist = np.max(mask_dt)
     coords_y, coords_x = np.where(mask_dt == max_dist)
-    return coords_x, coords_y
+    # Only take one
+    coords_x = coords_x[0]
+    coords_y = coords_y[0]
+    
+    return coords_x / width, coords_y / height
 
 
 class UR5SimulationEnv():
@@ -21,9 +29,10 @@ class UR5SimulationEnv():
         self._ur5_sim_env = None
 
     def setup(self):
-        from .env.test_simulation import setup_test_simulation
+        from .simulation.test_simulation import setup_test_simulation
         # This will launch a visualization window
         self._ur5_sim_env = setup_test_simulation(display=True)
+        time.sleep(1)  # Wair for things to stablize
 
     def get_image(self):
         color, depth, segment = self._ur5_sim_env.render(self._ur5_sim_env.camera_config_up)
@@ -31,7 +40,7 @@ class UR5SimulationEnv():
         image = Image.fromarray(color)
         return image
 
-    def get_execution_context():
+    def get_execution_context(self):
         """Create tools and actions for LLMs to call."""
 
         # Define tools here.
@@ -46,7 +55,7 @@ class UR5SimulationEnv():
                 raise PlanExecutionError("Trying to pick an object when the grasper is currently holding an object.")
             grasper_holding = obj
 
-        def place(obj):
+        def place(obj, orientation='notimplemented'):
             nonlocal grasper_holding
             if grasper_holding is None:
                 raise PlanExecutionError("Trying to place an object when the grasper is currently holding nothing.")
@@ -55,14 +64,14 @@ class UR5SimulationEnv():
             place_point = find_mask_center_point(obj)
             # Actual call to simulated env
             self._ur5_sim_env.step(pick_point, place_point)
+            grasper_holding = None
 
         # End of tools definition
         # -------------------------------------------------------------------------------------
 
-        tools = [
-            "pick"
-            "place"
-        ]
+        tools = {
+            "pick": pick,
+            "place": place
+        }
 
-        env = {k: v for k, v in locals() if k in tools}
-        return env
+        return tools

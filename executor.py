@@ -1,6 +1,13 @@
 import sys
 import threading
 
+import numpy as np
+
+import colorama
+from colorama import Fore, Back, Style
+
+colorama.init()
+
 class SimpleExecutor:
     def __init__(self, environment):
         """
@@ -11,16 +18,19 @@ class SimpleExecutor:
         self.environment = environment
 
 
-    def execute_plan(self, plan_code):
+    def execute_plan(self, plan_code: str, additional_context: dict={}):
         """
         Execute the plan code within the Python environment held by the executor.
 
         :param plan_code: A string containing the Python code to be executed.
         """
-        exec(plan_code, self.environment)
+        # Combine functions and temporary variables (masks)
+        execution_context = self.environment.copy()
+        execution_context.update(additional_context)
+        exec(plan_code, execution_context)
 
 
-class Executor:
+class LineWiseExecutor:
     """
     A class for executing code with tracing and timeout capabilities.
 
@@ -111,12 +121,12 @@ class Executor:
             print(f"{Fore.GREEN}(Executor) Executing line {self.last_line}: {Fore.CYAN}{line}{Style.RESET_ALL}")
         return self._trace_function
 
-    def _execute_with_trace(self, plan_code: str):
+    def _execute_with_trace(self, code: str, env: dict):
         try:
-            self.plan_code_lines = plan_code.split('\n')
-            self.compiled_code = compile(plan_code, "PlanCode", "exec")
+            self.plan_code_lines = code.split('\n')
+            self.compiled_code = compile(code, "PlanCode", "exec")
             sys.settrace(self._trace_function)
-            exec(plan_code, self.environment)
+            exec(code, env)
         except Exception as e:
             print(f"Error on line {self.last_line}: {str(e)}", file=sys.stderr)
             raise e
@@ -124,13 +134,17 @@ class Executor:
             sys.settrace(None)
 
 
-    def execute_plan(self, plan_code: str):
+    def execute_plan(self, plan_code: str, additional_context: dict={}):
+        # Combine functions and temporary variables
+        execution_context = self.environment.copy()
+        execution_context.update(additional_context)
+
         if self.timeout:
-            thread = threading.Thread(target=self._execute_with_trace, args=(plan_code,))
+            thread = threading.Thread(target=self._execute_with_trace, args=(plan_code, execution_context))
             thread.start()
             thread.join(self.timeout)
             if thread.is_alive():
                 print("Execution timed out.", file=sys.stderr)
         else:
-            self._execute_with_trace(plan_code)
+            self._execute_with_trace(plan_code, execution_context)
 

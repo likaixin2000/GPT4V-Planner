@@ -34,7 +34,7 @@ class Environment():
         self.running = False
 
         
-        self.pixel_size = 0.001644#0.001096
+        self.pixel_size = cameras.RealSenseD415.pixel_size
         self.camera_config = cameras.RealSenseD415.CONFIG
         self.camera_config_up = cameras.RealSenseD415.CONFIG_UP
 
@@ -125,11 +125,44 @@ class Environment():
     # Standard RL Functions
     #-------------------------------------------------------------------------
 
-    def step(self, pick_point,place_point):
-        _,depth,_ = self.render(self.camera_config_up)
+    # def step_(self, pick_point, place_point):
+    #     _,depth,_ = self.render(self.camera_config_up)
 
-        pick_point_tf = utils.pixel_to_position(pick_point,depth[pick_point[1]][pick_point[0]],self.camera_config_up,self.pixel_size)
-        place_point_tf = utils.pixel_to_position(place_point,depth[place_point[1]][place_point[0]],self.camera_config_up,self.pixel_size)
+    #     pick_point_tf = utils.pixel_to_position(pick_point,depth[pick_point[1]][pick_point[0]],self.camera_config_up,self.pixel_size)
+    #     place_point_tf = utils.pixel_to_position(place_point,depth[place_point[1]][place_point[0]],self.camera_config_up,self.pixel_size)
+    #     pick_point_add_ori = [pick_point_tf,[0,0,0,1]]
+    #     place_point_add_ori = [place_point_tf,[0,0,0,1]]
+    #     #print("pick_point:",pick_point_add_ori)
+    #     #print("place_point:",place_point_add_ori)
+    #     #print("...............")
+    #     self.pick_place(pick_point_add_ori,place_point_add_ori) 
+    #     return pick_point_tf,place_point_tf
+
+    def step(self, pick_point, place_point):
+        print("(normalized) Pick: ", pick_point, ", Place: ", place_point)
+        _,depth,_ = self.render(self.camera_config_up)
+        # Convert normalized position to pixel points
+        height, width = depth.shape
+        pick_point_x, pick_point_y = pick_point
+        place_point_x, place_point_y = place_point
+        pick_point_x, pick_point_y = int(pick_point_x * width), int(pick_point_y * height)
+        place_point_x, place_point_y = int(place_point_x * width), int(place_point_y * height)
+
+        print(f"(pixel) Pick : ({pick_point_x}, {pick_point_y}), Place: ({place_point_x}, {place_point_y})")
+
+
+        pick_point_tf = utils.pixel_to_position(
+            (pick_point_x, pick_point_y),
+            depth[pick_point_y][pick_point_x],
+            self.camera_config_up,
+            self.pixel_size
+        )
+        place_point_tf = utils.pixel_to_position(
+            (place_point_x, place_point_y),
+            depth[place_point_y][place_point_x],
+            self.camera_config_up,
+            self.pixel_size
+        )
         pick_point_add_ori = [pick_point_tf,[0,0,0,1]]
         place_point_add_ori = [place_point_tf,[0,0,0,1]]
         #print("pick_point:",pick_point_add_ori)

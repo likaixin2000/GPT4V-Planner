@@ -49,7 +49,8 @@ COMMON_OBJECTS = [
     "pen",
     "marker",
     "laptop",
-    "keyboard"
+    "keyboard",
+    "block"
 ]
 
 def convert_cxcywh_to_x1y1x2y2(cxcywh_box):

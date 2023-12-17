@@ -37,10 +37,15 @@ urdf = utils.fill_template(my_env.assets_root,template, replace)
 my_env.add_object(urdf, obj_pose)
 os.remove(urdf)
 
-place_pixel = [120,160]
-pick_pos = obj_pose[0]
-pick_pixel = utils.position_to_pixel(pick_pos, my_env.camera_config_up, my_env.pixel_size)
-my_env.step(pick_pixel,place_pixel)
+time.sleep(1)
+# my_env.step([0.1,0.2],[0.5,0.5])
+my_env.step_([120,160],[130,130])
+# time.sleep(10)
+
+# place_pixel = [0.2,0.5]
+# pick_pos = obj_pose[0]
+# pick_pixel = utils.position_to_pixel(pick_pos, my_env.camera_config_up, my_env.pixel_size)
+# my_env.step(pick_pixel,place_pixel)
 
 
 time.sleep(10)
