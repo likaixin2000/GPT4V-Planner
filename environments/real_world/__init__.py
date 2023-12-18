@@ -2,8 +2,8 @@
 
 
 from functools import partial
-from ...api.detectors import Detector, OWLViT, COMMON_OBJECTS
-from ...api.effectors import Effector
+from ...apis.detectors import Detector, OWLViT, COMMON_OBJECTS
+from ...apis.effectors import Effector
 
 def build_execution_env():
     """Create tools for LLMs to call."""

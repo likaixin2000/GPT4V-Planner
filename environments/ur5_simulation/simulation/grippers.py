@@ -18,7 +18,7 @@
 import os
 
 import numpy as np
-from utils import load_urdf
+from simulation_utils import load_urdf
 
 import pybullet as p
 

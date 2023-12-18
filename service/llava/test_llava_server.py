@@ -1,6 +1,6 @@
 from PIL import Image
 
-from api import create_conversation, chat
+from apis import create_conversation, chat
 from utils import construct_html_page_from_chat
 
 def test_llava_server():

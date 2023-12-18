@@ -4,7 +4,7 @@ import base64
 import numpy as np
 from PIL import Image
 
-from .utils import convert_pil_image_to_base64
+from utils.image_utils import convert_pil_image_to_base64
 
 class Segmentor():
     pass

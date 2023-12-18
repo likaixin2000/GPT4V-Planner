@@ -25,8 +25,9 @@ def find_mask_center_point(binary_mask):
 
 
 class UR5SimulationEnv():
-    def __init__(self):
+    def __init__(self, logger=None):
         self._ur5_sim_env = None
+        self.logger = logger
 
     def setup(self):
         from .simulation.test_simulation import setup_test_simulation
@@ -65,6 +66,10 @@ class UR5SimulationEnv():
             # Actual call to simulated env
             self._ur5_sim_env.step(pick_point, place_point)
             grasper_holding = None
+
+            # Logging
+            if self.logger is not None:
+                self.logger.log(name="After action `place`", log_type="action", message=f"Pick point:{pick_point}\nPlace point:{place_point}", image=self.get_image())
 
         # End of tools definition
         # -------------------------------------------------------------------------------------

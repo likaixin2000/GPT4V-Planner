@@ -1,7 +1,7 @@
 from environment import Environment
 import time
 import numpy as np
-import utils
+import simulation_utils as utils
 import os
 
 my_env = Environment(disp=True)

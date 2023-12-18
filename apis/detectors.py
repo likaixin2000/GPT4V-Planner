@@ -3,7 +3,7 @@ from PIL import Image
 
 import requests
 
-from .utils import convert_pil_image_to_base64
+from utils.image_utils import convert_pil_image_to_base64
 
 COMMON_OBJECTS = [
     "refrigerator",

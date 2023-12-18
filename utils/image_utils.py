@@ -1,4 +1,7 @@
+import pickle
 import numpy as np
+import base64
+from io import BytesIO
 
 from PIL import Image
 from torchvision import transforms
@@ -9,10 +12,12 @@ def normalized_bbox_to_pixel_scale(bbox, image) -> list[int]:
     width, height = image.size
     return int(bbox[0] * width), int(bbox[1] * height), int(bbox[2] * width), int(bbox[3] * height)
 
+
 def resize_image(image: Image.Image, size) -> Image:
     transform = transforms.Compose([transforms.Resize(int(size), interpolation=Image.BICUBIC)])
     processed_image = transform(image)
     return processed_image
+
 
 def visualize_bboxes(image: Image.Image, bboxes: list, alpha=0.9) -> Image.Image:
     if len(bboxes) == 0:
@@ -51,3 +56,9 @@ def visualize_masks(image: Image.Image, annotations: list, label_mode, alpha, dr
         # assign the mask to the mask_map
         mask_map[mask == 1] = label
     return Image.fromarray(demo.get_image())   
+
+
+def convert_pil_image_to_base64(image: Image) -> str:
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()

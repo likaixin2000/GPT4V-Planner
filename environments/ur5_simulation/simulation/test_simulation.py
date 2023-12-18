@@ -2,7 +2,7 @@ import random
 from environment import Environment
 import time
 import numpy as np
-import utils
+import simulation_utils as utils
 import os
 import pybullet as p
 

@@ -4,14 +4,13 @@ from typing import List, Optional, Dict, Any
 
 from PIL import Image
 
-from api.language_model import LanguageModel
-from api.detectors import Detector, COMMON_OBJECTS
-from api.segmentors import Segmentor
+from apis.language_model import LanguageModel
+from apis.detectors import Detector, COMMON_OBJECTS
+from apis.segmentors import Segmentor
 
-from .visualizer import GenericMask
-
-from .utils import resize_image, visualize_bboxes, visualize_masks
-
+from utils.image_utils import resize_image, visualize_bboxes, visualize_masks
+from utils.logging import CustomLogger
+from utils.exceptions import *
 
 DEFAULT_ACTION_SPACE = """
  - pick(obj)
@@ -24,7 +23,7 @@ class PlanResult:
     def __init__(
         self, 
         success: bool = False, 
-        error_message: Optional[str] = None, 
+        exception: Optional[Exception] = None, 
         plan_raw: Optional[str] = None, 
         masks: Optional[list[Any]] = None, 
         prompt: Optional[str] = None, 
@@ -33,7 +32,7 @@ class PlanResult:
         info_dict: Optional[Dict[str, Any]] = None
     ) -> None:
         self.success = success
-        self.error_message = error_message
+        self.exception = exception
         self.plan_raw = plan_raw
         self.masks = masks
         self.prompt = prompt
@@ -44,7 +43,7 @@ class PlanResult:
     def __repr__(self) -> str:
         return ("PlanResult("
                 f"success={self.success},\n "
-                f"error_message={repr(self.error_message)},\n "
+                f"exception={repr(self.exception)},\n"
                 f"plan_raw={repr(self.plan_raw)},\n "
                 f"masks={self.masks},\n "
                 f"prompt={repr(self.prompt)},\n "
@@ -54,33 +53,67 @@ class PlanResult:
                 ")"
         )
 
-def extract_plans_and_regions(text: str, regions: list):
-    # Extract code blocks. We assume there is only one code block in the generation
-    code_blocks = re.findall(r'```python(.*?)```', text, re.DOTALL)
-    if not code_blocks:
-        return None, None
-
-    code_block = code_blocks[0]
-
-    # Use regular expression to find all occurrences of region[index]
-    matches = re.findall(r'regions\[(\d+)\]', code_block)
-
-    used_indices = list(set(int(index) for index in matches))
-    used_indices.sort()
-
-    index_mapping = {old_index: new_index for new_index, old_index in enumerate(used_indices)}
-    for old_index, new_index in index_mapping.items():
-        code_block = code_block.replace(f'regions[{old_index}]', f'regions[{new_index}]')
-    try:
-        filtered_regions = [regions[index - 1] for index in used_indices]  # indices starts from 1 !!!!!
-    except IndexError as e:  # Invalid index is used
-        return None, None
-
-    return code_block, filtered_regions
 
 class Agent():
-    def __init__(self, action_space: str = DEFAULT_ACTION_SPACE) -> None:
+    def __init__(
+            self, 
+            action_space: str = DEFAULT_ACTION_SPACE,
+            logger: CustomLogger = None
+            ) -> None:
         self.action_space = action_space
+        self.configs = {} if not hasattr(self, "configs") else self.configs
+        self.logger = logger if logger is not None else None
+
+
+    def log(self, *args, **kwargs):
+        if self.logger is not None:
+            self.logger.log(*args, **kwargs)
+
+
+    def try_plan(self, *args, **kwargs):
+        try:
+            return self.plan(*args, **kwargs)
+        # Exceptions related to the planning process. It is not raised in the api calls so we should log it explicitly. 
+        except PlanException as exception:
+            self.log(name="Plan Exception", message=f"{repr(exception)}", log_type="plan_exception", content={"exception": exception})
+            return PlanResult(
+                success=False,
+                exception=exception,
+                info_dict={"logs": self.logger.get_logs()} if self.logger is not None else {}
+            )
+        
+        # Other exceptions, such as network errors and api key errors are not caught here.
+        # The user should fix the components and then do the planning.
+
+
+    def extract_plans_and_regions(self, text: str, regions: list):
+        self.log(name="Extract plan code and filtered masks", log_type="call")
+
+        # Extract code blocks. We assume there is only one code block in the generation
+        code_blocks = re.findall(r'```python(.*?)```', text, re.DOTALL)
+        if not code_blocks:
+            raise EmptyCodeError("No python code block was found.")
+
+        code_block = code_blocks[0]
+
+        # Use regular expression to find all occurrences of region[index]
+        matches = re.findall(r'regions\[(\d+)\]', code_block)
+
+        used_indices = list(set(int(index) for index in matches))
+        used_indices.sort()
+
+        index_mapping = {old_index: new_index for new_index, old_index in enumerate(used_indices)}
+        for old_index, new_index in index_mapping.items():
+            code_block = code_block.replace(f'regions[{old_index}]', f'regions[{new_index}]')
+        try:
+            filtered_regions = [regions[index - 1] for index in used_indices]  # indices starts from 1 !!!!!
+        except IndexError as e:  # Invalid index is used
+            raise BadCodeError("Invalid region index is referenced.")
+
+        self.log(name="Extracted plan code", log_type="info", message=code_block)
+        self.log(name="Extracted masks", log_type="data", content=filtered_regions)
+        return code_block, filtered_regions
+
 
 
 class SegVLM(Agent):
@@ -111,7 +144,6 @@ Note:
         self.segmentor = segmentor
         self.vlm = vlm
 
-
         # Default configs
         self.configs = {
             "img_size": None,
@@ -125,12 +157,18 @@ Note:
 
 
     def plan(self, prompt: str, image: Image.Image):
+        self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
+
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs and self.configs["img_size"]:
             processed_image = resize_image(image, self.configs["img_size"])
+
         # Generate segmentation masks
+        self.log(name="Segment auto mask", log_type="call", image=processed_image)
         masks = self.segmentor.segment_auto_mask(processed_image)
+        self.log(name="Segment auto mask result", log_type="data", content=masks)
+        
 
         # Draw masks
         # sorted_masks = sorted(masks, key=(lambda x: x['area']), reverse=True)
@@ -144,23 +182,17 @@ Note:
             draw_box=False
         )
         
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
+        self.log(name="VLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}", image=annotated_img)
         plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=annotated_img, 
-            meta_prompt=self.meta_prompt.format(action_space=self.action_space)
+            meta_prompt=meta_prompt
         )
+        self.log(name="Raw plan", log_type="info", message=plan_raw)
         
-        plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
-        if plan_code is None:
-            return PlanResult(
-                success=False, 
-                error_message="No code is produced or the code generated is invalid.",
-                plan_raw=plan_raw,
-                annotated_image=annotated_img,
-                prompt=prompt,
-                info_dict=dict(configs=self.configs)
-            )
-
+        plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
+        
         return PlanResult(
             success=True,
             plan_code=plan_code,
@@ -218,6 +250,8 @@ Note:
         super().__init__(**kwargs)
     
     def plan(self, prompt: str, image: Image.Image):
+        self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
+
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs and self.configs["img_size"]:
@@ -225,6 +259,7 @@ Note:
         
         # Generate detection boxes
         text_queries = COMMON_OBJECTS
+        self.log(name="Detect objects", log_type="call", message=f"Queries: {text_queries}", image=processed_image)
         detected_objects = self.detector.detect_objects(
             processed_image,
             text_queries,
@@ -240,12 +275,11 @@ Note:
         # 'box_name': 'roof',
         # 'objectness': 0.09425540268421173}, ...
         # ]
+        self.log(name="Detected objects", log_type="data", content=detected_objects)
+        
         if len(detected_objects) == 0:
-            return PlanResult(
-                success=False, 
-                error_message="No objects were detected in the image.",
-                info_dict=dict(objects_to_detect=text_queries)
-            )
+            raise EmptyObjectOfInterestError("No objects were detected in the image.")
+
 
         # Draw masks
         annotated_img = visualize_bboxes(
@@ -254,25 +288,30 @@ Note:
             alpha=self.configs["alpha"]
         )
         
-        
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
+        self.log(name="VLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}", image=annotated_img)
         plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=annotated_img, 
-            meta_prompt=self.meta_prompt.format(action_space=self.action_space)
+            meta_prompt=meta_prompt
         )
+        self.log(name="Raw plan", log_type="info", message=plan_raw)
+
+        self.log(name="Segmentor segment_by_bboxes call", log_type="call", )
         masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[obj['bbox']] for obj in detected_objects])
+        # Visualize and log the result for debugging
+        segment_img = visualize_masks(
+            processed_image, 
+            annotations=[anno["segmentation"] for anno in masks],
+            label_mode=self.configs["label_mode"],
+            alpha=self.configs["alpha"],
+            draw_mask=True, 
+            draw_mark=True, 
+            draw_box=True
+        )
+        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=segment_img)
 
-        plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
-
-        if plan_code is None:
-            return PlanResult(
-                success=False, 
-                error_message="No code is produced or the code generated is invalid.",
-                plan_raw=plan_raw,
-                annotated_image=annotated_img,
-                prompt=prompt,
-                info_dict=dict(configs=self.configs)
-            )
+        plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
         
         return PlanResult(
             success=True,
@@ -298,6 +337,7 @@ Note:
 - Do not define the operations in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
+
     def __init__(
             self, 
             detector: Detector,
@@ -374,9 +414,12 @@ Note:
             else:
                 markdown_list.append(f"- {box_name}")
 
-        return '\n'.join(markdown_list)
+        result = '\n'.join(markdown_list)
+        return result
 
     def plan(self, prompt: str, image: Image.Image):
+        self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
+
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs and self.configs["img_size"]:
@@ -399,15 +442,11 @@ Note:
         # 'box_name': 'roof',
         # 'objectness': 0.09425540268421173}, ...
         # ]
-
+        self.log(name="Detected objects", log_type="data", content=detected_objects)
         if len(detected_objects) == 0:
-            return PlanResult(
-                success=False, 
-                error_message="No objects were detected in the image.",
-                info_dict=dict(objects_to_detect=text_queries)
-            )
+            raise EmptyObjectOfInterestError("No objects were detected in the image.")
         
-        # Draw masks
+        # Draw bboxes (for debugging)
         annotated_img = visualize_bboxes(
             processed_image,
             bboxes=[obj['bbox'] for obj in detected_objects], 
@@ -416,16 +455,32 @@ Note:
 
         # Covert detection results to a string
         textualized_object_list = self.textualize_detections(detected_objects, include_coordinates=self.configs["include_coordinates"])
-        prompt = textualized_object_list + '\n\n' + prompt
+        self.log(name="Textualized detections", log_type="info", message=textualized_object_list)
         
+
+        prompt = textualized_object_list + '\n\n' + prompt
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
+        self.log(name="LLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}")
         plan_raw = self.llm.chat(
             prompt=prompt, 
-            meta_prompt=self.meta_prompt.format(action_space=self.action_space)
+            meta_prompt=meta_prompt
         )
 
+        self.log(name="Segmentor segment_by_bboxes call", log_type="call")
         masks = self.segmentor.segment_by_bboxes(image=processed_image, bboxes=[[obj['bbox']] for obj in detected_objects])
+        # Visualize and log the result for debugging
+        segment_img = visualize_masks(
+            processed_image, 
+            annotations=[anno["segmentation"] for anno in masks],
+            label_mode=self.configs["label_mode"],
+            alpha=self.configs["alpha"],
+            draw_mask=True, 
+            draw_mark=True, 
+            draw_box=True
+        )
+        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=segment_img)
 
-        plan_code, filtered_masks = extract_plans_and_regions(plan_raw, masks)
+        plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
 
         return PlanResult(
             success=True,
@@ -455,6 +510,7 @@ Note:
 - Your object list should be encompassed by a json code block "```json".
 - Your code should be surrounded by a python code block "```python".
 '''
+
     def __init__(self, vlm: LanguageModel, detector: Detector, segmentor: Segmentor, configs: dict = None, **kwargs):
         if not isinstance(vlm, LanguageModel):
             raise TypeError("`vlm` must be an instance of LanguageModel.")
@@ -479,55 +535,57 @@ Note:
         super().__init__(**kwargs)
 
     def extract_objects_of_interest_from_vlm_response(self, plan_raw: str):
+        self.log(name="Extract plan code and object names", log_type="call")
         # Extract code blocks. We assume there is only one code block in the generation
         code_blocks = re.findall(r'```python(.*?)```', plan_raw, re.DOTALL)
         json_blocks = re.findall(r'```json(.*?)```', plan_raw, re.DOTALL)
-        if not code_blocks or not json_blocks:
-            return None, None
+        if not code_blocks:
+            raise EmptyCodeError("No python code block found.")
+        if not json_blocks:
+            raise EmptyObjectOfInterestError("No object of interest found.")
         
         code_block = code_blocks[0]
         json_block = json_blocks[0]
         object_names_and_aliases = json.loads(json_block)
-
-        # Use regular expression to find all occurrences of region[index]
-        # object_names = re.findall(r'object=\"(.+)\"', code_block)
-
-        # object_names = list(set(obj_name for obj_name in object_names))
-
+        if not object_names_and_aliases:
+            raise EmptyObjectOfInterestError("No object of interest found.")
+        
+        self.log(name="Extracted plan code", log_type="info", message=code_block)
+        self.log(name="Extracted objects of interest", log_type="info", message=repr(object_names_and_aliases))
         return code_block, object_names_and_aliases
 
     def plan(self, prompt: str, image: Image.Image):
+        self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
+
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs and self.configs["img_size"]:
             processed_image = resize_image(image, self.configs["img_size"])
 
-        # Generate a textual response from VLM
+        # Generate a response from VLM
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
+        self.log(name="VLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}", image=processed_image)
         plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=processed_image, 
-            meta_prompt=self.meta_prompt.format(action_space=self.action_space)
+            meta_prompt=meta_prompt
         )
+        self.log(name="Raw plan", log_type="info", message=plan_raw)
 
         # Extract objects of interest from VLM's response
         plan_code, object_names_and_aliases = self.extract_objects_of_interest_from_vlm_response(plan_raw)
-        if objects_of_interest is None:
-            return PlanResult(
-                success=False,
-                error_message=f"Could not extract objects of intereset.",
-                plan_raw=plan_raw,
-                info_dict=dict(configs=self.configs)
-            )
-        
         objects_of_interest = [obj["name"] for obj in object_names_and_aliases]
-
         # Detect only the objects of interest
+        self.log(name="Detect objects", log_type="call", message=f"Queries: {objects_of_interest}", image=processed_image)
         detected_objects = self.detector.detect_objects(
             processed_image,
             objects_of_interest,
             bbox_score_top_k=20,
             bbox_conf_threshold=0.3
         )
+        self.log(name="Detected objects", log_type="data", content=detected_objects)
+        self.log(name="Detected objects", log_type="info", message=[obj["box_name"] for obj in detected_objects])
+
 
         # (kaixin) NOTE: This requires the object names to be unique.
         # Filter and select boxes with the correct name and highest score per name
@@ -540,39 +598,22 @@ Note:
         # Check if any object of interest is missing in the detected objects
         missing_objects = set(objects_of_interest) - set(best_boxes.keys())
         if missing_objects:
-            return PlanResult(
-                success=False,
-                error_message=f"Missing objects that were not detected or had no best box: {', '.join(missing_objects)}",
-                info_dict=dict(
-                    objects_to_detect=objects_of_interest, 
-                    found_objects=list(best_boxes.keys()), 
-                    missing_objects=list(missing_objects), 
-                    info_dict=dict(configs=self.configs)
-                )
-            )
-
+            raise ObjectNotDetectedError(f"Missing objects that were not detected or had no best box: {', '.join(missing_objects)}")
+            
         # Arrange boxes in the order of objects_of_interest
         boxes_of_interest = [best_boxes[name] for name in objects_of_interest]
 
-        
-        # Draw masks
-        annotated_img = visualize_bboxes(
-            processed_image,
-            bboxes=[obj['bbox'] for obj in boxes_of_interest], 
-            alpha=self.configs["alpha"]
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in boxes_of_interest])
+        segment_img = visualize_masks(
+            processed_image, 
+            annotations=[anno["segmentation"] for anno in masks],
+            label_mode=self.configs["label_mode"],
+            alpha=self.configs["alpha"],
+            draw_mask=True, 
+            draw_mark=True, 
+            draw_box=True
         )
-
-        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
-        
-
-        # Generate the final plan using the VLM with the annotated image
-        # final_plan = self.vlm.chat(
-        #     prompt=prompt, 
-        #     image=annotated_img, 
-        #     meta_prompt=self.meta_prompt.format(action_space=self.action_space)
-        # )
-
-        # plan_code, filtered_masks = extract_plans_and_regions(final_plan, masks)
+        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=segment_img)
 
         # Replace object names with region masks
         for index, object_name in enumerate(objects_of_interest):
@@ -583,13 +624,13 @@ Note:
             plan_code=plan_code,
             masks=masks,
             plan_raw=plan_raw,
-            annotated_image=annotated_img,
+            annotated_image=segment_img,
             prompt=prompt,
             info_dict=dict(configs=self.configs)
         )
 
 
-class VLMDetInspect(Agent):
+class VLMDetInspect(VLMDet):
     meta_prompt_plan = \
 '''
 You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. 
@@ -619,6 +660,7 @@ Note:
 - Do not define the operations or regions in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
+
     def __init__(self, vlm: LanguageModel, detector: Detector, segmentor: Segmentor, configs: dict = None, **kwargs):
         if not isinstance(vlm, LanguageModel):
             raise TypeError("`vlm` must be an instance of LanguageModel.")
@@ -642,56 +684,38 @@ Note:
 
         super().__init__(**kwargs)
 
-    def extract_objects_of_interest_from_vlm_response(self, plan_raw: str):
-        # Extract code blocks. We assume there is only one code block in the generation
-        code_blocks = re.findall(r'```python(.*?)```', plan_raw, re.DOTALL)
-        json_blocks = re.findall(r'```json(.*?)```', plan_raw, re.DOTALL)
-        if not code_blocks or not json_blocks:
-            return None, None
-        
-        code_block = code_blocks[0]
-        json_block = json_blocks[0]
-        object_names_and_aliases = json.loads(json_block)
-
-        # Use regular expression to find all occurrences of region[index]
-        # object_names = re.findall(r'object=\"(.+)\"', code_block)
-
-        # object_names = list(set(obj_name for obj_name in object_names))
-
-        return code_block, object_names_and_aliases
 
     def plan(self, prompt: str, image: Image.Image):
+        self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
+
         # Resize the image if necessary
         processed_image = image
         if "img_size" in self.configs:
             processed_image = resize_image(image, self.configs["img_size"])
 
-        # Generate a textual response from VLM
+        # Generate a response from VLM
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
+        self.log(name="VLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}", image=processed_image)
         plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=processed_image, 
-            meta_prompt=self.meta_prompt_plan.format(action_space=self.action_space)
+            meta_prompt=meta_prompt
         )
-
+        self.log(name="Raw plan", log_type="info", message=plan_raw)
         # Extract objects of interest from VLM's response
         plan_code, object_names_and_aliases = self.extract_objects_of_interest_from_vlm_response(plan_raw)
         objects_of_interest = [obj["name"] for obj in object_names_and_aliases]
-        if objects_of_interest is None:
-            return PlanResult(
-                success=False,
-                error_message=f"Could not extract objects of intereset.",
-                info_dict=dict(configs=self.configs, plan_raw_before_inspect=plan_raw)
-            )
-        
-
-
         # Detect only the objects of interest
+        self.log(name="Detect objects", log_type="call", message=f"Queries: {objects_of_interest}", image=processed_image)
         detected_objects = self.detector.detect_objects(
             processed_image,
             objects_of_interest,
             bbox_score_top_k=20,
             bbox_conf_threshold=0.3
         )
+        self.log(name="Detected objects", log_type="data", content=detected_objects)
+        self.log(name="Detected objects", log_type="info", message=[obj["box_name"] for obj in detected_objects])
+
 
         # (kaixin) NOTE: This requires the object names to be unique.
         # Filter and select boxes with the correct name and highest score per name
@@ -704,82 +728,50 @@ Note:
         # Check if any object of interest is missing in the detected objects
         missing_objects = set(objects_of_interest) - set(best_boxes.keys())
         if missing_objects:
-            return PlanResult(
-                success=False,
-                error_message=f"Missing objects that were not detected or had no best box: {', '.join(missing_objects)}",
-                info_dict=dict(
-                    objects_to_detect=objects_of_interest, 
-                    found_objects=list(best_boxes.keys()), 
-                    missing_objects=list(missing_objects), 
-                    info_dict=dict(configs=self.configs)
-                )
-            )
-
+            raise ObjectNotDetectedError(f"Missing objects that were not detected or had no best box: {', '.join(missing_objects)}")
+            
         # Arrange boxes in the order of objects_of_interest
         boxes_of_interest = [best_boxes[name] for name in objects_of_interest]
         
-        # Draw masks
-        annotated_img_boxes_of_interest = visualize_bboxes(
-            processed_image,
-            bboxes=[obj['bbox'] for obj in boxes_of_interest], 
-            alpha=self.configs["alpha"]
-        )
-
-        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in detected_objects])
-        # TODO: Draw the object names on the masks? It only draws numbers for now.
-        annotated_img = visualize_masks(processed_image, 
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[[bbox] for bbox in boxes_of_interest])
+        annotated_img = visualize_masks(
+            processed_image, 
             annotations=[anno["segmentation"] for anno in masks],
             label_mode=self.configs["label_mode"],
             alpha=self.configs["alpha"],
             draw_mask=False, 
             draw_mark=True, 
-            draw_box=False
+            draw_box=True
         )
+        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=annotated_img)
 
         # Ask the VLM to inspect the masks to disambiguate the objects
         # This object has no state. It will be a new conversation.
+        self.log(name="VLM call: final plan", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}", image=processed_image)
         final_plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=annotated_img, 
             meta_prompt=self.meta_prompt_inspect.format(action_space=self.action_space)
         )
+        self.log(name="Final raw plan", log_type="info", message=plan_raw)
 
-        plan_code, filtered_masks = extract_plans_and_regions(final_plan_raw, masks)
+        plan_code, filtered_masks = self.extract_plans_and_regions(final_plan_raw, masks)
 
-        # Replace object names with region masks
-        # for index, object_name in enumerate(objects_of_interest):
-        #     plan_code = plan_code.replace(object_name, f"regions[{str(index)}]")
-
-        if plan_code is None:
-            return PlanResult(
-                success=False, 
-                error_message="No code is produced or the code generated is invalid.",
-                plan_raw=final_plan_raw,
-                annotated_image=annotated_img,
-                prompt=prompt,
-                info_dict=dict(
-                    configs=self.configs, 
-                    plan_raw_before_inspect=plan_raw, 
-                    annotated_img_boxes_of_interest=annotated_img_boxes_of_interest
-                )
-            )
-        
         return PlanResult(
             success=True,
             plan_code=plan_code,
             masks=filtered_masks,
-            plan_raw=plan_raw,
+            plan_raw=final_plan_raw,
             annotated_image=annotated_img,
             prompt=prompt,
             info_dict=dict(
                 configs=self.configs, 
-                plan_raw_before_inspect=plan_raw, 
-                annotated_img_boxes_of_interest=annotated_img_boxes_of_interest
+                plan_raw_before_inspect=plan_raw
             )
         )
 
 
-def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None, configs=None):
+def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None, configs=None, logger=None):
     """
     Factory method to create an instance of a specific Agent subclass with default values.
 
@@ -796,31 +788,31 @@ def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None,
     """
 
     # Use default instances if none are provided
-    from api.detectors import OWLViT
-    from api.segmentors import SAM
-    from api.language_model import GPT4, GPT4V
+    from apis.detectors import OWLViT
+    from apis.segmentors import SAM
+    from apis.language_model import GPT4, GPT4V
     segmentor = segmentor or SAM()
     vlm = vlm or GPT4V()
     detector = detector or OWLViT()
     llm = llm or GPT4()
 
     if agent_type == 'SegVLM':
-        return SegVLM(segmentor=segmentor, vlm=vlm, configs=configs)
+        return SegVLM(segmentor=segmentor, vlm=vlm, configs=configs, logger=logger)
 
     elif agent_type == 'DetVLM':
-        return DetVLM(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+        return DetVLM(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs, logger=logger)
 
     elif agent_type == 'DetLLM':
-        return DetLLM(segmentor=segmentor, detector=detector, llm=llm, configs=configs)
+        return DetLLM(segmentor=segmentor, detector=detector, llm=llm, configs=configs, logger=logger)
 
     elif agent_type == 'VLMSeg':
-        return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+        return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs, logger=logger)
 
     elif agent_type == 'VLMDet':
-        return VLMDet(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+        return VLMDet(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs, logger=logger)
 
     elif agent_type == 'VLMDetInspect':
-        return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+        return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs, logger=logger)
     
     else:
         raise ValueError("Unknown agent type.")

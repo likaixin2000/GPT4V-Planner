@@ -7,7 +7,7 @@ import json
 import requests
 
 from openai import OpenAI
-from .utils import convert_pil_image_to_base64
+from utils.image_utils import convert_pil_image_to_base64
 
 class LanguageModel():
     def __init__(self, support_vision):

@@ -9,7 +9,7 @@ import numpy as np
 import pybullet as p
 import matplotlib.pyplot as plt
 from grippers import Suction
-import utils
+import simulation_utils as utils
 import cameras
 
 

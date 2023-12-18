@@ -7,7 +7,7 @@ import requests
 import numpy as np
 from PIL import Image
 
-from api import detect_objects
+from apis import detect_objects
 
 def test_detect_objects():
     # API endpoint URL
