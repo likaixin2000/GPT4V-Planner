@@ -1,4 +1,6 @@
+import io
 import pickle
+from matplotlib import pyplot as plt
 import numpy as np
 import base64
 from io import BytesIO
@@ -62,3 +64,41 @@ def convert_pil_image_to_base64(image: Image) -> str:
     buffered = BytesIO()
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
+
+
+def visualize_image(image, mask=None, points=None, show=True, return_img=False):
+    plt.tight_layout()
+    plt.imshow(image)
+    plt.axis('off')
+
+    # Overlay mask if provided
+    if mask is not None:
+        colored_mask = np.zeros((*mask.shape, 4))
+        default_mask_color = [0.8, 0.8, 0.8, 0.8]
+        colored_mask[mask > 0] = default_mask_color
+        plt.imshow(colored_mask)
+
+    # Plot points if provided
+    if points is not None:
+        img_height, img_width = np.array(image).shape[:2]
+        points = np.array(points)
+        points[:, 0] = points[:, 0] * img_width
+        points[:, 1] = points[:, 1] * img_height
+        plt.scatter(points[:, 0], points[:, 1], c='red', s=50)  # larger circle
+        plt.scatter(points[:, 0], points[:, 1], c='yellow', s=30)  # smaller circle inside
+
+    plot = plt.gcf()
+
+    if return_img:
+        buffer = io.BytesIO()
+        plot.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0)
+        buffer.seek(0)
+        img = Image.open(buffer)
+
+    if show:
+        plt.show(plot)
+
+    plt.close(plot)
+
+    if return_img:
+        return img

@@ -3,11 +3,27 @@ import pickle
 
 from .image_utils import convert_pil_image_to_base64
 
+# Global logging utils
+_global_logger = None
+
+def set_logger(logger_instance):
+    """Set the global logger instance."""
+    global _global_logger
+    _global_logger = logger_instance
+
+def get_logger():
+    """Retrieve the global logger instance."""
+    if _global_logger is None:
+        raise ValueError("Logger has not been set. Please set it first using set_logger.")
+    return _global_logger
+
+
 def encode_html_str(s):
     return html.encode(s).replace("\n", "<br>")
 
 class CustomLogger:
-    def __init__(self):
+    def __init__(self, name=""):
+        self.name = name
         self.logs = []
 
     def log(self, name=None, log_type=None, message=None, image=None, content=None):
