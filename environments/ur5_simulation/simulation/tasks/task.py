@@ -273,7 +273,7 @@ class Task():
         """Get RGB-D orthographic heightmaps and segmentation masks."""
 
         # Capture near-orthographic RGB-D images and segmentation masks.
-        color, depth, segm = env.render_camera(self.oracle_cams[0])
+        color, depth, segm = env.render(self.oracle_cams[0])
 
         # Combine color with masks for faster processing.
         color = np.concatenate((color, segm[Ellipsis, None]), axis=2)

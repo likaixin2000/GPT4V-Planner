@@ -16,7 +16,6 @@ def setup_test_simulation(display=True):
 
     
     # IMPORTANT: set disp=False if you don't have a graphics interface
-    # Try running `sudo startx`, and connect with `ssh -X <dest>`
     my_env = Environment(disp=display)  
     my_env.reset()
 

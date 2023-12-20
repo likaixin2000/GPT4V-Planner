@@ -191,7 +191,7 @@ class Environment():
         }
 
         self.obj_ids = {'fixed': [], 'rigid': [], 'deformable': []}
-        self.assets_root = "assets"
+        self.assets_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
         p.resetSimulation(p.RESET_USE_DEFORMABLE_WORLD)   
         p.setGravity(0, 0, -9.8)

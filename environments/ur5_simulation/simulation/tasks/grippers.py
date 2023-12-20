@@ -3,7 +3,7 @@
 import os
 
 import numpy as np
-from cliport.utils import pybullet_utils
+from ...simulation import simulation_utils as pybullet_utils
 
 import pybullet as p
 
