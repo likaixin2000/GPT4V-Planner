@@ -18,7 +18,7 @@ class RealWorldEnv(Environment):
         self.logger = logging.get_logger() if enable_logging else None
 
     def setup(self, task_name: str):
-        pass
+        self.effector = Effector()
 
     def get_image(self):
         pass
@@ -34,10 +34,10 @@ class RealWorldEnv(Environment):
         grasper_holding = None
 
         def pick(obj):
-            pass
+            self.effector.pick(obj)
 
         def place(obj, orientation='notimplemented'):
-            pass
+            self.effector.place(obj)
         # End of tools definition
         # -------------------------------------------------------------------------------------
 

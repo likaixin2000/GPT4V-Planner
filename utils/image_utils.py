@@ -1,6 +1,8 @@
 import io
 import pickle
+import random
 from matplotlib import pyplot as plt
+import matplotlib.patches as patches
 import numpy as np
 import base64
 from io import BytesIO
@@ -66,28 +68,43 @@ def convert_pil_image_to_base64(image: Image) -> str:
     return base64.b64encode(buffered.getvalue()).decode()
 
 
-def visualize_image(image, mask=None, points=None, show=True, return_img=False):
+def visualize_image(image, masks=None, bboxes=None, points=None, show=True, return_img=False):
+    img_height, img_width = np.array(image).shape[:2]
     plt.tight_layout()
     plt.imshow(image)
     plt.axis('off')
+    plot = plt.gcf()
 
     # Overlay mask if provided
-    if mask is not None:
-        colored_mask = np.zeros((*mask.shape, 4))
-        default_mask_color = [0.8, 0.8, 0.8, 0.8]
-        colored_mask[mask > 0] = default_mask_color
-        plt.imshow(colored_mask)
+    if masks is not None:
+        for mask in masks:
+            colored_mask = np.zeros((*mask.shape, 4))
+            random_color = [0.5 + 0.5 * random.random() for _ in range(3)] + [0.8]  # RGBA format
+            colored_mask[mask > 0] = random_color
+            plt.imshow(colored_mask) 
 
+    # Draw bounding boxes if provided
+    if bboxes is not None:
+        for bbox in bboxes:
+            x1, y1, x2, y2 = bbox
+            x1 *= img_width
+            y1 *= img_height
+            x2 *= img_width
+            y2 *= img_height
+            
+            width = x2 - x1
+            height = y2 - y1
+            # Create a Rectangle patch
+            rect = patches.Rectangle((x1, y1), width, height, linewidth=1, edgecolor='blue', facecolor='none')
+            plt.gca().add_patch(rect)
+            
     # Plot points if provided
     if points is not None:
-        img_height, img_width = np.array(image).shape[:2]
         points = np.array(points)
         points[:, 0] = points[:, 0] * img_width
         points[:, 1] = points[:, 1] * img_height
         plt.scatter(points[:, 0], points[:, 1], c='red', s=50)  # larger circle
         plt.scatter(points[:, 0], points[:, 1], c='yellow', s=30)  # smaller circle inside
-
-    plot = plt.gcf()
 
     if return_img:
         buffer = io.BytesIO()

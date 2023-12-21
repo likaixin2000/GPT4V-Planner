@@ -53,18 +53,18 @@ COMMON_OBJECTS = [
     "block"
 ]
 
-def convert_cxcywh_to_x1y1x2y2(cxcywh_box):
-    """
-    Converts bounding box coordinates from cXcYWH format to X1Y1X2Y2 format.
+# def convert_cxcywh_to_x1y1x2y2(cxcywh_box):
+#     """
+#     Converts bounding box coordinates from cXcYWH format to X1Y1X2Y2 format.
 
-    Parameters:
-    xywh_box (list or tuple): Bounding box in XYWH format [cx, cy, width, height].
+#     Parameters:
+#     xywh_box (list or tuple): Bounding box in XYWH format [cx, cy, width, height].
 
-    Returns:
-    list: Bounding box in X1Y1X2Y2 format [x1, y1, x2, y2].
-    """
-    cx, cy, w, h = cxcywh_box
-    return [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
+#     Returns:
+#     list: Bounding box in X1Y1X2Y2 format [x1, y1, x2, y2].
+#     """
+#     cx, cy, w, h = cxcywh_box
+#     return [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]
 
 class Detector():
     pass
@@ -113,17 +113,13 @@ class OWLViT(Detector):
         scores = resp_data['scores']
         bboxes = resp_data['bboxes']
         box_names = resp_data['box_names']
-        objectnesses = resp_data['objectnesses']
-
-        # Convert bbox format to x1y1x2y2. Value range is in 0-1, so it is fine.
-        bboxes = [convert_cxcywh_to_x1y1x2y2(bbox) for bbox in bboxes]
         
         
         # Assert that all lists have the same length
-        assert len({len(scores), len(bboxes), len(box_names), len(objectnesses)}) == 1, "Server returned data with different lengths. Something is wrong, most probably on the server side."
+        assert len({len(scores), len(bboxes), len(box_names)}) == 1, "Server returned data with different lengths. Something is wrong, most probably on the server side."
 
-        dict_data = [{'score': score, 'bbox': bbox, 'box_name': box_name, 'objectness': objectness} 
-                 for score, bbox, box_name, objectness in zip(scores, bboxes, box_names, objectnesses)]
+        dict_data = [{'score': score, 'bbox': bbox, 'box_name': box_name} 
+                 for score, bbox, box_name in zip(scores, bboxes, box_names)]
 
         return dict_data
 
