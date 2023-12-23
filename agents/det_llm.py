@@ -23,8 +23,11 @@ You are in charge of controlling a robot. You will be given a list of operations
 Operation list:
 {action_space}
 
+Things to keep in mind:
+{additional_meta_prompt}
+
 Note:
-- For any item referenced in your code, please use the format of `object="object_name"`.
+- For any item referenced in your code, please use the format of `obj="object_name"`.
 - Do not define the operations in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
@@ -50,7 +53,6 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": None,
             "alpha": 0.7,
             "include_coordinates": True
         }
@@ -60,6 +62,14 @@ Note:
 
 
         super().__init__(**kwargs)
+
+    def extract_regions_of_interest(self, code: str):
+        # In DetLLM, the references are object names.
+        matches = re.findall(r'obj=[\'"](.+?)[\'"]', code)
+
+        refs = list(set(object_name for object_name in matches))
+        refs.sort()
+        return refs
 
     def textualize_detections(self, detected_objects: list, include_coordinates=False) -> str:
         """
@@ -110,74 +120,92 @@ Note:
 
     def plan(self, prompt: str, image: Image.Image):
         self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
-
-        # Resize the image if necessary
-        processed_image = image
-        if "img_size" in self.configs and self.configs["img_size"]:
-            processed_image = resize_image(image, self.configs["img_size"])
         
-        # Generate detection boxes
+        # Detect boxes
         text_queries = COMMON_OBJECTS
         detected_objects = self.detector.detect_objects(
-            processed_image,
+            image,
             text_queries,
             bbox_score_top_k=20,
             bbox_conf_threshold=0.5
         )
-        #  Example result:
-        # [{'score': 0.3141017258167267,
-        # 'bbox': [0.212062269449234,
-        # 0.3956533372402191,
-        # 0.29010745882987976,
-        # 0.08735490590333939],
-        # 'box_name': 'roof',
-        # 'objectness': 0.09425540268421173}, ...
-        # ]
+
         self.log(name="Detected objects", log_type="data", content=detected_objects)
+        # Check if the detections are complete
+        #  1. It should not be empty
         if len(detected_objects) == 0:
             raise EmptyObjectOfInterestError("No objects were detected in the image.")
         
+        #  2. No multiple instances
+        # Convert the detections to a dict and check if there are multiple instances of the same name.
+        detected_objects_dict = {}
+        for detection in detected_objects:
+            object_name = detection["box_name"]
+            if object_name not in detected_objects_dict:
+                detected_objects_dict[object_name] = detection
+            else:
+                raise NameConflictError(f"There are multiple instances of object '{object_name}'. DetLLM can not tell them apart.")
+        
         # Draw bboxes (for debugging)
-        annotated_img = visualize_bboxes(
-            processed_image,
+        bbox_img = visualize_bboxes(
+            image,
             bboxes=[obj['bbox'] for obj in detected_objects], 
             alpha=self.configs["alpha"]
         )
-
-        # Covert detection results to a string
+        # Convert detection results to a string
         textualized_object_list = self.textualize_detections(detected_objects, include_coordinates=self.configs["include_coordinates"])
-        self.log(name="Textualized detections", log_type="info", message=textualized_object_list)
+        self.log(name="Detected objects", message=textualized_object_list, image=bbox_img)
         
-
+        # Call LLM
         prompt = textualized_object_list + '\n\n' + prompt
-        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
-        self.log(name="LLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}")
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
+        self.log(name="LLM call", log_type="call", message=f"Prompt:\n{prompt},\n Meta prompt:\n{meta_prompt}")
         plan_raw = self.llm.chat(
             prompt=prompt, 
             meta_prompt=meta_prompt
         )
 
+        plan_code_raw = self.extract_code_block(plan_raw)
+        objects_of_interest = self.extract_regions_of_interest(plan_code_raw)
+        self.log(name="Objects of interest", message="\n".join(objects_of_interest))
+        # Check if all objects mentioned are in the detections.
+        objects_not_detected = []
+        for object_name in objects_of_interest:
+            if object_name not in detected_objects_dict.keys():
+                objects_not_detected.append(object_name)
+        if len(objects_not_detected):
+            raise MissingObjectError(f"Object(s) of interest ({', '.join(objects_not_detected)}) are not detected.")
+
+        bboxes_of_interest = [detected_objects_dict[name]["bbox"] for name in objects_of_interest]
+
+        # Segment masks
         self.log(name="Segmentor segment_by_bboxes call", log_type="call")
-        masks = self.segmentor.segment_by_bboxes(image=processed_image, bboxes=[[obj['bbox']] for obj in detected_objects])
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=bboxes_of_interest)
         # Visualize and log the result for debugging
         segment_img = visualize_masks(
-            processed_image, 
+            image, 
             annotations=[anno["segmentation"] for anno in masks],
-            label_mode=self.configs["label_mode"],
-            alpha=self.configs["alpha"],
+            label_mode="1",
+            alpha=0.8,
             draw_mask=True, 
             draw_mark=True, 
             draw_box=True
         )
+        assert len(masks) == len(objects_of_interest)
         self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=segment_img)
 
-        plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
+        # Convert references with names to `regions[i]`
+        plan_code = plan_code_raw[:]  # Make a copy
+        for i, object_name in enumerate(objects_of_interest):
+            pattern = r'obj=[\'"]' + re.escape(object_name) + r'[\'"]'
+            plan_code = re.sub(pattern, f'regions[{i}]', plan_code)
+
 
         return PlanResult(
             success=True,
             plan_code=plan_code,
-            masks=filtered_masks,
-            annotated_image=annotated_img,
+            masks=masks,
+            annotated_image=segment_img,
             plan_raw=plan_raw,
             prompt=prompt,
             info_dict=dict(configs=self.configs, detected_objects=detected_objects)

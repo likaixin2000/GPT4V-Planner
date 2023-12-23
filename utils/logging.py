@@ -19,7 +19,7 @@ def get_logger():
 
 
 def encode_html_str(s):
-    return html.encode(s).replace("\n", "<br>")
+    return html.escape(s).replace("\n", "<br>")
 
 class CustomLogger:
     def __init__(self, name=""):
@@ -73,14 +73,14 @@ class CustomLogger:
         Converts the logs into a styled HTML string that mimics a chatbot UI,
         with alignment based on log type and handling both message and image fields.
         """
-        html_string = '<div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 20px auto; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">'
+        html_string = '<div style="font-family: Arial, sans-serif; color: black; padding: 20px; max-width: 600px; margin: 20px auto; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">'
         for log in self.logs:
             # The chat box's position
             align = 'right' if log['type'] == 'call' else 'left'
             background_color = '#f1f0f0' if align == 'left' else '#d1e7dd'
             border_color = '#ccc' if align == 'left' else '#a6d1b2'
             html_string += f'''
-                <div style="text-align: {align}; margin-bottom: 10px;">
+                <div style="margin-bottom: 10px;">
                     <div style="display: inline-block; background-color: {background_color}; padding: 10px; border-radius: 10px; border: 2px solid {border_color};">
                         <b>{log["name"]}:</b><br/>
             '''

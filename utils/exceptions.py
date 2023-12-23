@@ -34,6 +34,10 @@ class DetectionError(PlanException):
     """Base exception for errors in detection processes."""
     pass
 
-class ObjectNotDetectedError(DetectionError):
+class MissingObjectError(DetectionError):
     """Exception raised when an object is not detected."""
+    pass
+
+class NameConflictError(PlanException):
+    """Exception raised when a object name has multiple instances. Only raised in text-based planner. """
     pass

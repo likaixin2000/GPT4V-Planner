@@ -161,28 +161,29 @@ class GPT4V(LanguageModel):
         )
 
         response = client.chat.completions.create(
-        model="gpt-4-vision-preview",
-        messages=[
-            {
-                "role": "system",
-                "content": [
-                    {"type": "text", "text": meta_prompt}
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}",
+            model="gpt-4-vision-preview",
+            messages=[
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": meta_prompt}
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}",
+                            },
                         },
-                    },
-                ],
-            }
-        ],
-        max_tokens=500,
+                    ],
+                }
+            ],
+            temperature=0.0,
+            max_tokens=1024,
         )
         ret = response.choices[0].message.content
         return ret

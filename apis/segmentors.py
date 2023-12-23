@@ -76,6 +76,9 @@ class SAM(Segmentor):
         :param bbox: The bounding box for segmentation (in 0-1 range).
         :return: Segmentation results.
         """
+        # Correct the dimension of the bboxes: [bbox, bbox, ...] -> [[bbox], [bbox], ...]
+        bboxes = [[bbox] for bbox in bboxes]
+        
         scaled_bboxes = self._scale_bboxes_to_image_size(bboxes, image.size)
         response = self._send_request(
             endpoint='sam_mask_by_bbox',

@@ -49,8 +49,9 @@ COMMON_OBJECTS = [
     "pen",
     "marker",
     "laptop",
+    "tape",
     "keyboard",
-    "block"
+    "block",
 ]
 
 # def convert_cxcywh_to_x1y1x2y2(cxcywh_box):
@@ -87,6 +88,17 @@ class OWLViT(Detector):
         
         Returns:
         - tuple: Parsed response data from the API, containing scores, boxes, box_names, and objectnesses.
+         Example result:
+        [
+            {'score': 0.3141017258167267,
+            'bbox': [0.212062269449234,
+            0.3956533372402191,
+            0.29010745882987976,
+            0.08735490590333939],
+            'box_name': 'roof',
+            'objectness': 0.09425540268421173
+            }, ...
+        ]
         """
 
         # Convert image to base64

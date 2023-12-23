@@ -24,8 +24,11 @@ You are in charge of controlling a robot. You will be given a list of operations
 Operation list:
 {action_space}
 
+Things to keep in mind:
+{additional_meta_prompt}
+
 Note:
-- For any item mentioned in your answer, please use the format of `regions[number]`.
+- A python list `regions` will be provided for you to reference the objects. Please use the format of `obj=regions[number]`.
 - Do not define the operations or regions in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
@@ -46,7 +49,6 @@ Note:
 
         # Default configs
         self.configs = {
-            "img_size": None,
             "label_mode": "1",
             "alpha": 0.05
         }
@@ -59,21 +61,15 @@ Note:
     def plan(self, prompt: str, image: Image.Image):
         self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
 
-        # Resize the image if necessary
-        processed_image = image
-        if "img_size" in self.configs and self.configs["img_size"]:
-            processed_image = resize_image(image, self.configs["img_size"])
-
         # Generate segmentation masks
-        self.log(name="Segment auto mask", log_type="call", image=processed_image)
-        masks = self.segmentor.segment_auto_mask(processed_image)
+        masks = self.segmentor.segment_auto_mask(image)
         self.log(name="Segment auto mask result", log_type="data", content=masks)
         
 
         # Draw masks
         # sorted_masks = sorted(masks, key=(lambda x: x['area']), reverse=True)
         annotated_img = visualize_masks(
-            processed_image, 
+            image, 
             annotations=[anno["segmentation"] for anno in masks],
             label_mode=self.configs["label_mode"],
             alpha=self.configs["alpha"],
@@ -81,9 +77,10 @@ Note:
             draw_mark=True, 
             draw_box=False
         )
+        self.log(name="Segment auto mask", log_type="call", image=annotated_img)
         
-        meta_prompt = self.meta_prompt.format(action_space=self.action_space)
-        self.log(name="VLM call", log_type="call", message=f"Prompt: {prompt},\n Meta prompt: {meta_prompt}", image=annotated_img)
+        meta_prompt = self.meta_prompt.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
+        self.log(name="VLM call", log_type="call", message=f"Prompt:\n{prompt},\n Meta prompt:\n{meta_prompt}", image=annotated_img)
         plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=annotated_img, 

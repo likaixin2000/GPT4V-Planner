@@ -16,10 +16,14 @@ from utils.exceptions import *
 DEFAULT_ACTION_SPACE = """
  - pick(obj)
  - place(obj, orientation). 
+   - `obj` is the destination object, around which you want to put down the object the robot is currently holding. 
    - `orientation` in ['inside', 'on_top_of', 'left', 'right', 'up', 'down']
  - open(obj)
 """
 
+COMMON_PROMPT = """
+You are REQUIRED to pick an object ONLY when there are no other objects stacked on top of it.
+"""
 
 class PlanResult:
     def __init__(
@@ -47,7 +51,7 @@ class PlanResult:
                 f"success={self.success},\n "
                 f"exception={repr(self.exception)},\n"
                 f"plan_raw={repr(self.plan_raw)},\n "
-                f"masks={self.masks},\n "
+                f"masks=<{len(self.masks) if self.masks is not None else 'No'} masks>,\n "
                 f"prompt={repr(self.prompt)},\n "
                 f"plan_code={repr(self.plan_code)},\n "
                 f"annotated_image={self.annotated_image},\n "
@@ -60,9 +64,11 @@ class Agent():
     def __init__(
             self, 
             action_space: str = DEFAULT_ACTION_SPACE,
+            additional_meta_prompt: str = COMMON_PROMPT,
             enable_logging: bool = True,
             ) -> None:
         self.action_space = action_space
+        self.additional_meta_prompt = COMMON_PROMPT
         self.configs = {} if not hasattr(self, "configs") else self.configs
         self.enable_logging = enable_logging
         self.logger = get_logger() if enable_logging else None
@@ -90,28 +96,62 @@ class Agent():
         # Other exceptions, such as network errors and api key errors are not caught here.
         # The user should fix the components and then do the planning.
 
-
-    def extract_plans_and_regions(self, text: str, regions: list):
-        self.log(name="Extract plan code and filtered masks", log_type="call")
-
+    def extract_code_block(self, text: str):
         # Extract code blocks. We assume there is only one code block in the generation
         code_blocks = re.findall(r'```python(.*?)```', text, re.DOTALL)
         if not code_blocks:
             raise EmptyCodeError("No python code block was found.")
 
         code_block = code_blocks[0]
+        return code_block
 
-        # Use regular expression to find all occurrences of region[index]
-        matches = re.findall(r'regions\[(\d+)\]', code_block)
+    def extract_regions_of_interest(self, code: str):
+        matches = re.findall(r'regions\[(\d+)\]', code)
 
-        used_indices = list(set(int(index) for index in matches))
-        used_indices.sort()
+        refs = list(set(int(index) for index in matches))
+        refs.sort()
+        return refs
 
-        index_mapping = {old_index: new_index for new_index, old_index in enumerate(used_indices)}
+    def extract_plans_and_regions(self, text: str, regions: list):
+        """
+        Extracts a Python code block from the llm/vlm's response and updates the region index references within the code.
+
+        This method locates a Python code block within the provided text, assuming there is only one such block.
+        It then finds all occurrences of region index references in the format 'obj=regions[x]', where 'x'
+        is an integer. These indices are normalized to create a continuous sequence starting from 0. The method
+        also filters the regions list based on the indices used in the code, with the understanding that the
+        indices start from 1 in the code.
+
+        Parameters:
+        text (str): The text string containing the Python code block.
+        regions (list): The list of regions that are referenced in the code block.
+
+        Returns:
+        tuple: A tuple containing two elements:
+            - The modified code block with updated region index references.
+            - A list of filtered regions based on the indices used in the code block.
+
+        Raises:
+        EmptyCodeError: If no Python code block is found in the text.
+        BadCodeError: If an invalid region index is referenced in the code block.
+
+        Example:
+        >>> text = "Some text...```python\n# code using pick(obj=regions[3])\n```...more text"
+        >>> regions = ['Region1', 'Region2', 'Region3', 'Region4']
+        >>> extract_plans_and_regions(text, regions)
+        ("# code using pick(obj=regions[2])", ['Region3'])
+        """
+        self.log(name="Extract plan code and filtered masks", log_type="call")
+
+        code_block = self.extract_code_block(text)
+        refs = self.extract_regions_of_interest(code_block)
+
+        # Remap the regions with continuous ascending indices.
+        index_mapping = {old_index: new_index for new_index, old_index in enumerate(refs)}
         for old_index, new_index in index_mapping.items():
             code_block = code_block.replace(f'regions[{old_index}]', f'regions[{new_index}]')
         try:
-            filtered_regions = [regions[index - 1] for index in used_indices]  # indices starts from 1 !!!!!
+            filtered_regions = [regions[index - 1] for index in refs]  # indices starts from 1 !!!!!
         except IndexError as e:  # Invalid index is used
             raise BadCodeError("Invalid region index is referenced.")
 

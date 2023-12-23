@@ -1,3 +1,4 @@
+from functools import partial
 import io
 import pickle
 import random
@@ -119,3 +120,6 @@ def visualize_image(image, masks=None, bboxes=None, points=None, show=True, retu
 
     if return_img:
         return img
+
+
+get_visualized_image = partial(visualize_image, show=False, return_img=True)

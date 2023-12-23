@@ -1,11 +1,10 @@
 from functools import partial
 
-from ...apis.detectors import Detector, OWLViT, COMMON_OBJECTS
-from ...apis.effectors import Effector
+from apis.detectors import Detector, OWLViT, COMMON_OBJECTS
 from environments import Environment, PlanExecutionError
 
 from utils import logging
-from utils.image_utils import visualize_image
+from utils.image_utils import get_visualized_image
 
 class RealWorldEnv(Environment):
     def __init__(
@@ -17,11 +16,15 @@ class RealWorldEnv(Environment):
         self.enable_logging = enable_logging
         self.logger = logging.get_logger() if enable_logging else None
 
-    def setup(self, task_name: str):
-        self.effector = Effector()
+        self.effector = None
+
+    def setup(self):
+        from service.grasper.grasper import FetchAgent
+        self.effector = FetchAgent()
 
     def get_image(self):
-        pass
+        assert self.effector, "The effector is not initialized. Did you forget to call setup()?"
+        return self.effector.get_img()
 
     def get_execution_context(self):
         """Create tools and actions for LLMs to call."""
@@ -29,15 +32,17 @@ class RealWorldEnv(Environment):
         # -------------------------------------------------------------------------------------
         # Define tools here.
 
-        # The env accepts pick and place as a single function call.
-        # Record the object mask the grasper is currently holding.
-        grasper_holding = None
-
         def pick(obj):
-            self.effector.pick(obj)
+            mask = obj
+            self.effector.pick(mask)
 
         def place(obj, orientation='notimplemented'):
-            self.effector.place(obj)
+            target_mask = obj
+            self.effector.placeon(target_mask)
+
+        def move(name):
+            pass
+
         # End of tools definition
         # -------------------------------------------------------------------------------------
 
@@ -60,7 +65,7 @@ class RealWorldEnv(Environment):
         # Crete the logger that records all actions
         inspect_logger = logging.CustomLogger("Inspector")
 
-        grasper_holding = False
+        grasper_holding = None
 
         def pick(obj):
             nonlocal grasper_holding
@@ -69,17 +74,18 @@ class RealWorldEnv(Environment):
             grasper_holding = obj
 
             # Log
-            log_image = visualize_image(plan_image, mask=obj)
-            inspect_logger.log(name="Action `place`", log_type="action", image=log_image)
+            log_image = get_visualized_image(plan_image, masks=[obj])
+            inspect_logger.log(name="Action `pick`", log_type="action", image=log_image)
 
 
         def place(obj, orientation='notimplemented'):
             nonlocal grasper_holding
             if grasper_holding is None:
                 raise PlanExecutionError("Trying to place an object when the grasper is currently holding nothing.")
+            grasper_holding = None
  
             # Log
-            log_image = visualize_image(plan_image, mask=obj)
+            log_image = get_visualized_image(plan_image, masks=[obj])
             inspect_logger.log(name="Action `place`", log_type="action", image=log_image)
 
         # End of tools definition
