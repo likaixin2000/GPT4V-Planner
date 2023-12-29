@@ -1,5 +1,6 @@
+import os
+import signal
 import sys
-import threading
 
 import numpy as np
 
@@ -7,6 +8,7 @@ import colorama
 from colorama import Fore, Back, Style
 
 from utils import logging
+from utils.exceptions import UserTerminationException
 
 colorama.init()
 
@@ -84,7 +86,7 @@ class LineWiseExecutor:
         ```
 
     """
-    def __init__(self, environment, timeout=None, pause_every_line=False, enable_logging=True):
+    def __init__(self, environment, pause_every_line=False, enable_logging=True):
         """
         Initialize the Executor instance.
 
@@ -99,13 +101,8 @@ class LineWiseExecutor:
         `globals()` of the context in which the Executor is used, ensuring 
         that the executed code has access to the necessary functions, 
         variables, and imports.
-        - timeout (int, optional): The maximum time in seconds allowed for 
-        the execution of the code. If the execution takes longer than this 
-        duration, it will be terminated. If not specified, or if set to None, 
-        there is no timeout.
         """
         self.environment = environment
-        self.timeout = timeout
         self.last_line = None
         self.plan_code_lines = None
         self.compiled_code = None  # Used to identify current python frame
@@ -115,14 +112,24 @@ class LineWiseExecutor:
         if enable_logging:
             self.logger = logging.get_logger()
 
+    def _handle_force_stop(self, signum, frame):
+        """
+        Signal handler for forced stop.
+        """
+        raise UserTerminationException("The user stopped the execution.")
+    
     def _trace_function(self, frame, event, arg):
         if frame.f_code == self.compiled_code and event == "line":
             self.last_line = frame.f_lineno
             line = self.plan_code_lines[self.last_line - 1].strip()
             if self.pause_every_line:
                 user_input = input(f"{Fore.YELLOW}(Executor) Next line to execute (press enter or 'y' to continue): {Fore.CYAN}{line}{Style.RESET_ALL}")
-                if user_input not in ['', 'y', 'yes']:
-                    raise KeyboardInterrupt
+                if user_input not in ['']:
+                    # Emit a signal to this process
+                    # Get the current process ID
+                    pid = os.getpid()
+                    # Send a signal to the process
+                    os.kill(pid, signal.SIGUSR1)
             if self.enable_logging:
                 self.logger.log(name="Executor", log_type="info", message=f"Executing line {self.last_line}: {line}")
             print(f"{Fore.GREEN}(Executor) Executing line {self.last_line}: {Fore.CYAN}{line}{Style.RESET_ALL}")
@@ -130,6 +137,8 @@ class LineWiseExecutor:
 
     def _execute_with_trace(self, code: str, env: dict):
         try:
+            # Register a signal of the termination signal
+            signal.signal(signal.SIGUSR1, self._handle_force_stop)
             self.plan_code_lines = code.split('\n')
             self.compiled_code = compile(code, "PlanCode", "exec")
             sys.settrace(self._trace_function)
@@ -146,14 +155,7 @@ class LineWiseExecutor:
         execution_context = self.environment.copy()
         execution_context.update(additional_context)
 
-        if self.timeout:
-            thread = threading.Thread(target=self._execute_with_trace, args=(plan_code, execution_context))
-            thread.start()
-            thread.join(self.timeout)
-            if thread.is_alive():
-                print("Execution timed out.", file=sys.stderr)
-        else:
-            self._execute_with_trace(plan_code, execution_context)
+        self._execute_with_trace(plan_code, execution_context)
 
 
 class InspectExecutor:

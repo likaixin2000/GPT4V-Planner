@@ -1,5 +1,7 @@
 from functools import partial
 
+from PIL import Image
+
 from apis.detectors import Detector, OWLViT, COMMON_OBJECTS
 from environments import Environment, PlanExecutionError
 
@@ -24,7 +26,8 @@ class RealWorldEnv(Environment):
 
     def get_image(self):
         assert self.effector, "The effector is not initialized. Did you forget to call setup()?"
-        return self.effector.get_img()
+        image = Image.fromarray(self.effector.get_img())
+        return image
 
     def get_execution_context(self):
         """Create tools and actions for LLMs to call."""

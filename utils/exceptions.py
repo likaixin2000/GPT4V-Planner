@@ -41,3 +41,7 @@ class MissingObjectError(DetectionError):
 class NameConflictError(PlanException):
     """Exception raised when a object name has multiple instances. Only raised in text-based planner. """
     pass
+
+class UserTerminationException(Exception):
+    """Exception raised to signal forced termination of code execution."""
+    pass
