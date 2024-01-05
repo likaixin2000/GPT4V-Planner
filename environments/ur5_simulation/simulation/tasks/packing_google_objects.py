@@ -201,7 +201,8 @@ class PackingSeenGoogleObjectsSeq(Task):
         super().reset(env)
 
         # object names
-        object_names = self.object_names[self.mode]
+        # object_names = self.object_names[self.mode]
+        object_names = self.object_names["test"]
 
         # Add container box.
         zone_size = self.get_random_size(0.2, 0.35, 0.2, 0.35, 0.05, 0.05)

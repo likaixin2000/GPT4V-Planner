@@ -34,7 +34,8 @@ class PutBlockInBowlUnseenColors(Task):
         for _ in range(n_bowls):
             bowl_pose = self.get_random_pose(env, bowl_size)
             bowl_id = env.add_object(bowl_urdf, bowl_pose, 'fixed')
-            p.changeVisualShape(bowl_id, -1, rgbaColor=colors[1] + [1])
+            p.changeVisualShape(bowl_id, -1, rgbaColor=colors[1] + [1],
+                                specularColor=[1, 1, 1])
             bowl_poses.append(bowl_pose)
 
         # Add blocks.
@@ -44,7 +45,8 @@ class PutBlockInBowlUnseenColors(Task):
         for _ in range(n_blocks):
             block_pose = self.get_random_pose(env, block_size)
             block_id = env.add_object(block_urdf, block_pose)
-            p.changeVisualShape(block_id, -1, rgbaColor=colors[0] + [1])
+            p.changeVisualShape(block_id, -1, rgbaColor=colors[0] + [1],
+                                specularColor=[1, 1, 1])
             blocks.append((block_id, (0, None)))
 
         # Goal: put each block in a different bowl.
@@ -75,7 +77,8 @@ class PutBlockInBowlUnseenColors(Task):
             color = colors[n_distractors % len(colors)]
             if not obj_id:
                 continue
-            p.changeVisualShape(obj_id, -1, rgbaColor=color + [1])
+            p.changeVisualShape(obj_id, -1, rgbaColor=color + [1],
+                                specularColor=[1, 1, 1])
             n_distractors += 1
 
     def get_colors(self):

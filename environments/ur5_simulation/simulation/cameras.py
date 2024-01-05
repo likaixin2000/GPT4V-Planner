@@ -9,8 +9,8 @@ class RealSenseD415():
     
  
     # Mimic RealSense D415 RGB-D camera parameters.
-    # image_size = (480, 640)  #480 640
-    image_size = (240, 320)
+    image_size = (480, 640)  #480 640
+    # image_size = (240, 320)
     pixel_size = 0.001644 / (image_size[0] / 240)
     # intrinsics = (450., 0, 640., 0, 450., 480., 0, 0, 1)
     intrinsics = (450., 0, 320., 0, 450., 240., 0, 0, 1)

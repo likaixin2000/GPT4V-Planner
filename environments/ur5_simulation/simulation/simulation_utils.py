@@ -101,8 +101,7 @@ def eulerXYZ_to_quatXYZW(rotation):    # pylint: disable=invalid-name
     return quaternion_xyzw
 
 
-def quatXYZW_to_eulerXYZ(quaternion_xyzw):    # pylint: disable=invalid-name]
-    q = quaternion_wxyz
+def quatXYZW_to_eulerXYZ(q):    # pylint: disable=invalid-name]
     quaternion_wxyz = np.array([q[3], q[0], q[1], q[2]])
     euler_zxy = euler.quat2euler(quaternion_wxyz, axes='szxy')
     euler_xyz = (euler_zxy[1], euler_zxy[2], euler_zxy[0])

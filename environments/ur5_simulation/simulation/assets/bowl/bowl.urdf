@@ -13,7 +13,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-				<mesh filename="textured-0008192.obj" scale="1.25 1.25 0.25"/>
+				<mesh filename="bowl.obj" scale="1 1 1"/>
       </geometry>
       <material name="green">
         <color rgba="0.34901961 0.6627451 0.30980392 1"/>
@@ -22,7 +22,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-	 	    <mesh filename="cup.obj" scale="1.25 1.25 0.25"/>
+	 	    <mesh filename="cup.obj" scale="1 1 1"/>
       </geometry>
     </collision>
   </link>

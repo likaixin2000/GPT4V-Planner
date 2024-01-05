@@ -127,7 +127,7 @@ Note:
             image,
             text_queries,
             bbox_score_top_k=20,
-            bbox_conf_threshold=0.5
+            bbox_conf_threshold=0.2
         )
 
         self.log(name="Detected objects", log_type="data", content=detected_objects)

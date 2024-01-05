@@ -31,7 +31,7 @@ Things to keep in mind:
 
 Note:
 - Do not redefine functions in the operation list.
-- A python list `regions` will be provided for you to reference the objects. Please use the format of `obj=regions[number]`.
+- A python list `regions` will be provided for you to reference the objects. Please use the format of `obj="name"`.
 - Your object list should be encompassed by a json code block "```json".
 - Your code should be surrounded by a python code block "```python".
 '''

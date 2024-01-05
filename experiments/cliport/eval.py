@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 
-from environments import ur5_simulation
+from environments.ur5_simulation.env import UR5SimulationEnv
 
 
 from agents import Agent, agent_factory
@@ -50,7 +50,7 @@ def run_exp(
         logging.set_logger(logger)
 
         # Initialize environment.
-        exp_env = ur5_simulation.UR5SimulationEnv()
+        exp_env = UR5SimulationEnv()
         sim_env = exp_env._ur5_sim_env
         # Setup the environment
         info = exp_env.setup(task_name)
@@ -117,7 +117,7 @@ def run_exp(
 
 def main():
     agent_name = "SegVLM"
-    task_name = "packing-shapes"
+    task_name = "put-block-in-bowl-seen-colors"
 
     task_name = "cliport_" + task_name
     seed = 114514
@@ -126,6 +126,27 @@ def main():
     run_exp(agent_name, task_name, seed, save_folder, n_repeats=1, save_logs=["result_json", "html", "pkl"])
 
 
+[
+
+ 'packing-boxes-pairs-seen-colors', #?
+ 'packing-boxes-pairs-unseen-colors',
+ 'packing-boxes-pairs-full',
+ 'packing-seen-google-objects-seq',
+ 'packing-unseen-google-objects-seq',
+ 'packing-seen-google-objects-group',
+ 'packing-unseen-google-objects-group',
+ 'put-block-in-bowl-seen-colors',
+ 'put-block-in-bowl-unseen-colors',
+ 'put-block-in-bowl-full',
+ 'stack-block-pyramid-seq-seen-colors',
+ 'stack-block-pyramid-seq-unseen-colors',
+ 'stack-block-pyramid-seq-full',
+ 'separating-piles-seen-colors',
+ 'separating-piles-unseen-colors',
+ 'separating-piles-full',
+ 'towers-of-hanoi-seq-seen-colors',
+ 'towers-of-hanoi-seq-unseen-colors',
+ 'towers-of-hanoi-seq-full']
 
 if __name__ == '__main__':
     main()
