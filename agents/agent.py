@@ -4,11 +4,6 @@ from typing import List, Optional, Dict, Any
 
 from PIL import Image
 
-from apis.language_model import LanguageModel
-from apis.detectors import Detector, COMMON_OBJECTS
-from apis.segmentors import Segmentor
-
-from utils.image_utils import resize_image, visualize_bboxes, visualize_masks
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
 
@@ -22,7 +17,8 @@ DEFAULT_ACTION_SPACE = """
 """
 
 COMMON_PROMPT = """
-You are REQUIRED to pick an object ONLY when there are no other objects stacked on top of it.
+- You are REQUIRED to pick an object ONLY when there are no other objects stacked on top of it.
+- If the operation is not achivable, state the reason and do not return any code.
 """
 
 class PlanResult:
@@ -136,10 +132,10 @@ class Agent():
         BadCodeError: If an invalid region index is referenced in the code block.
 
         Example:
-        >>> text = "Some text...```python\n# code using pick(obj=regions[3])\n```...more text"
+        >>> text = "Some text...```python\npick(obj=regions[3])\n```...more text"
         >>> regions = ['Region1', 'Region2', 'Region3', 'Region4']
         >>> extract_plans_and_regions(text, regions)
-        ("# code using pick(obj=regions[2])", ['Region3'])
+        ("pick(obj=regions[2])", ['Region3'])
         """
         self.log(name="Extract plan code and filtered masks", log_type="call")
 

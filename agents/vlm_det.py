@@ -8,7 +8,7 @@ from apis.language_model import LanguageModel
 from apis.detectors import Detector, COMMON_OBJECTS
 from apis.segmentors import Segmentor
 
-from utils.image_utils import resize_image, visualize_bboxes, visualize_masks, visualize_image, get_visualized_image
+from utils.image_utils import resize_image, annotate_masks, visualize_image, get_visualized_image
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
 
@@ -121,9 +121,9 @@ Note:
         boxes_of_interest = [best_boxes[name] for name in objects_of_interest]
 
         masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[obj["bbox"] for obj in boxes_of_interest])
-        segment_img = visualize_masks(
+        segment_img = annotate_masks(
             image, 
-            annotations=[anno["segmentation"] for anno in masks],
+            masks=[anno["segmentation"] for anno in masks],
             label_mode=self.configs["label_mode"],
             alpha=self.configs["alpha"],
             draw_mask=True, 

@@ -8,7 +8,7 @@ from apis.language_model import LanguageModel
 from apis.detectors import Detector, COMMON_OBJECTS
 from apis.segmentors import Segmentor
 
-from utils.image_utils import resize_image, visualize_bboxes, visualize_masks
+from utils.image_utils import annotate_masks, get_visualized_image
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
 
@@ -147,10 +147,9 @@ Note:
                 raise NameConflictError(f"There are multiple instances of object '{object_name}'. DetLLM can not tell them apart.")
         
         # Draw bboxes (for debugging)
-        bbox_img = visualize_bboxes(
+        bbox_img = get_visualized_image(
             image,
-            bboxes=[obj['bbox'] for obj in detected_objects], 
-            alpha=self.configs["alpha"]
+            bboxes=[obj['bbox'] for obj in detected_objects]
         )
         # Convert detection results to a string
         textualized_object_list = self.textualize_detections(detected_objects, include_coordinates=self.configs["include_coordinates"])
@@ -182,9 +181,9 @@ Note:
         self.log(name="Segmentor segment_by_bboxes call", log_type="call")
         masks = self.segmentor.segment_by_bboxes(image=image, bboxes=bboxes_of_interest)
         # Visualize and log the result for debugging
-        segment_img = visualize_masks(
+        segment_img = annotate_masks(
             image, 
-            annotations=[anno["segmentation"] for anno in masks],
+            masks=[anno["segmentation"] for anno in masks],
             label_mode="1",
             alpha=0.8,
             draw_mask=True, 

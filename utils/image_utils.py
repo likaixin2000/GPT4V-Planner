@@ -24,21 +24,27 @@ def resize_image(image: Image.Image, size) -> Image:
     return processed_image
 
 
-def visualize_bboxes(image: Image.Image, bboxes: list, alpha=0.9) -> Image.Image:
-    if len(bboxes) == 0:
-        return image
+def convert_pil_image_to_base64(image: Image) -> str:
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
+
+
+# def visualize_bboxes(image: Image.Image, bboxes: list, alpha=0.9) -> Image.Image:
+#     if len(bboxes) == 0:
+#         return image
     
-    visualizer = Visualizer(image, metadata=None)
+#     visualizer = Visualizer(image, metadata=None)
 
-    for i, bbox in enumerate(bboxes):
-        label = i + 1
-        # color_mask = np.random.random((1, 3)).tolist()[0]
-        demo = visualizer.draw_bbox_with_number(normalized_bbox_to_pixel_scale(bbox, image), text=str(label), alpha=alpha)
-    return Image.fromarray(demo.get_image())
+#     for i, bbox in enumerate(bboxes):
+#         label = i + 1
+#         # color_mask = np.random.random((1, 3)).tolist()[0]
+#         demo = visualizer.draw_bbox_with_number(normalized_bbox_to_pixel_scale(bbox, image), text=str(label), alpha=alpha)
+#     return Image.fromarray(demo.get_image())
 
 
-def visualize_masks(image: Image.Image, annotations: list, label_mode, alpha, draw_mask=False, draw_mark=True, draw_box=False) -> Image.Image:
-    if len(annotations) == 0:
+def annotate_masks(image: Image.Image, masks: list, label_mode='1', alpha=0.5, draw_mask=False, draw_mark=True, draw_box=False) -> Image.Image:
+    if len(masks) == 0:
         return image
 
     visualizer = Visualizer(image, metadata=None)
@@ -53,20 +59,14 @@ def visualize_masks(image: Image.Image, annotations: list, label_mode, alpha, dr
         anno_mode.append("Box")
 
     mask_map = np.zeros((height, width), dtype=np.uint8)    
-    for i, mask in enumerate(annotations):
+    for i, mask in enumerate(masks):
         label = i + 1
         color_mask = np.random.random((1, 3)).tolist()[0]
         # color_mask = [int(c*255) for c in color_mask]
         demo = visualizer.draw_binary_mask_with_number(mask, text=str(label), label_mode=label_mode, alpha=alpha, anno_mode=anno_mode)
         # assign the mask to the mask_map
         mask_map[mask == 1] = label
-    return Image.fromarray(demo.get_image())   
-
-
-def convert_pil_image_to_base64(image: Image) -> str:
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode()
+    return Image.fromarray(demo.get_image())
 
 
 def visualize_image(image, masks=None, bboxes=None, points=None, show=True, return_img=False):

@@ -1,5 +1,6 @@
 torch
 torchvision
+transformers
 opencv-python
 pyyaml
 scikit-learn

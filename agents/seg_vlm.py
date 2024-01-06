@@ -8,7 +8,7 @@ from apis.language_model import LanguageModel
 from apis.detectors import Detector, COMMON_OBJECTS
 from apis.segmentors import Segmentor
 
-from utils.image_utils import resize_image, visualize_bboxes, visualize_masks
+from utils.image_utils import annotate_masks
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
 
@@ -68,9 +68,9 @@ Note:
 
         # Draw masks
         # sorted_masks = sorted(masks, key=(lambda x: x['area']), reverse=True)
-        annotated_img = visualize_masks(
+        annotated_img = annotate_masks(
             image, 
-            annotations=[anno["segmentation"] for anno in masks],
+            masks=[anno["segmentation"] for anno in masks],
             label_mode=self.configs["label_mode"],
             alpha=self.configs["alpha"],
             draw_mask=False, 

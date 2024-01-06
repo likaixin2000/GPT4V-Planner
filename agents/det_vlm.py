@@ -8,7 +8,7 @@ from apis.language_model import LanguageModel
 from apis.detectors import Detector, COMMON_OBJECTS
 from apis.segmentors import Segmentor
 
-from utils.image_utils import resize_image, visualize_bboxes, visualize_masks
+from utils.image_utils import resize_image, annotate_masks
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
 
@@ -80,12 +80,14 @@ Note:
         if len(detected_objects) == 0:
             raise EmptyObjectOfInterestError("No objects were detected in the image.")
 
-
+        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[obj['bbox'] for obj in detected_objects])
         # Draw masks
-        annotated_img = visualize_bboxes(
+        annotated_img = annotate_masks(
             image,
-            bboxes=[obj['bbox'] for obj in detected_objects], 
-            alpha=self.configs["alpha"]
+            masks=[mask['segmentation'] for mask in masks], 
+            alpha=self.configs["alpha"],
+            draw_box=True,
+            draw_mask=False
         )
         
         meta_prompt = self.meta_prompt.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
@@ -96,20 +98,6 @@ Note:
             meta_prompt=meta_prompt
         )
         self.log(name="Raw plan", log_type="info", message=plan_raw)
-
-        self.log(name="Segmentor segment_by_bboxes call", log_type="call", )
-        masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[obj['bbox'] for obj in detected_objects])
-        # Visualize and log the result for debugging
-        segment_img = visualize_masks(
-            image, 
-            annotations=[anno["segmentation"] for anno in masks],
-            label_mode=self.configs["label_mode"],
-            alpha=self.configs["alpha"],
-            draw_mask=True, 
-            draw_mark=True, 
-            draw_box=True
-        )
-        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=segment_img)
 
         plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
         
