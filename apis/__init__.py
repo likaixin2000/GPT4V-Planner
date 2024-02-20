@@ -1,6 +1,6 @@
 from .detectors import Detector, OWLViT
 from .segmentors import Segmentor, SAM
-from .language_model import LanguageModel, GPT4V
+from .language_model import LanguageModel, GPT4V, GEMINI_PRO, GEMINI_PRO_VISION
 
 
 __all__ = [
@@ -9,5 +9,7 @@ __all__ = [
     "Segmentor", 
     "SAM", 
     "LanguageModel", 
-    "GPT4V"
+    "GPT4V",
+    "GEMINI_PRO",
+    "GEMINI_PRO_VISION"
 ]

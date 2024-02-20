@@ -10,15 +10,17 @@ from utils.exceptions import *
 
 DEFAULT_ACTION_SPACE = """
  - pick(obj)
- - place(obj, orientation). 
+ - place(obj, orientation, offset=None). 
    - `obj` is the destination object, around which you want to put down the object the robot is currently holding. 
    - `orientation` in ['inside', 'on_top_of', 'left', 'right', 'up', 'down']
+   - `offset`: Normalized positions from 0 to 1 within the object region. [0.0, 0.0] is the top-left corner and [1.0, 1.0] is the bottom-right corner. 
+Only applicable when orientation="inside" or "on_top_of". You should decide carefully on this to avoid object collisions.
  - open(obj)
 """
 
 COMMON_PROMPT = """
 - You are REQUIRED to pick an object ONLY when there are no other objects stacked on top of it.
-- If the operation is not achivable, state the reason and do not return any code.
+- If the operation is not achivable, or the object you want to interact with does not have a number marked on it, state the reason and do not return any code.
 """
 
 class PlanResult:

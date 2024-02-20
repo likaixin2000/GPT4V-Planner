@@ -7,6 +7,8 @@ import json
 import requests
 
 from openai import OpenAI
+import google.generativeai as genai
+
 from utils.image_utils import convert_pil_image_to_base64
 
 class LanguageModel():
@@ -138,14 +140,14 @@ class LanguageModel():
 
 
 class GPT4V(LanguageModel):
-    def __init__(self, model="gpt-4-vision-preview"):
+    def __init__(
+        self, 
+        model="gpt-4-vision-preview",
+        temperature=0.0
+    ):
         self.model = model
-
-        super().__init__(
-            support_vision=True
-        )
-    def __init__(self, model="gpt-4-vision-preview"):
-        self.model = model
+        
+        self.temperature = temperature
 
         super().__init__(
             support_vision=True
@@ -182,7 +184,7 @@ class GPT4V(LanguageModel):
                     ],
                 }
             ],
-            temperature=0.0,
+            temperature=self.temperature,
             max_tokens=1024,
         )
         ret = response.choices[0].message.content
@@ -190,8 +192,14 @@ class GPT4V(LanguageModel):
 
 
 class GPT4(LanguageModel):
-    def __init__(self,):
-        self.model = "gpt-4"
+    def __init__(
+        self,
+        model="gpt-4",
+        temperature=0.0
+    ):
+        self.model = model
+        
+        self.temperature = temperature
 
         super().__init__(
             support_vision=True
@@ -217,6 +225,63 @@ class GPT4(LanguageModel):
                 }
             ],
             model=self.model,
+            temperature=self.temperature,
         )
         
         return response.choices[0].message.content
+
+
+class GEMINI_PRO(LanguageModel):
+    def __init__(self, temperature=0.0):
+        # Configure the Google Generative AI with API key
+        api_key = os.getenv("GOOGLE_API_KEY")
+        genai.configure(api_key=api_key)
+        self.client = genai.GenerativeModel('gemini-pro')
+
+        self.temperature = temperature
+
+    def chat(self, prompt, meta_prompt=""):
+        response = self.client.generate_content(
+            meta_prompt + prompt,
+            generation_config=genai.types.GenerationConfig(temperature=self.temperature)
+        )
+        return response.text
+
+
+class GEMINI_PRO_VISION(LanguageModel):
+    def __init__(self, temperature=0.0):
+        # Configure the Google Generative AI with API key
+        api_key = os.getenv("GOOGLE_API_KEY")
+        genai.configure(api_key=api_key)
+        self.client = genai.GenerativeModel('gemini-pro-vision')
+
+        self.temperature = temperature
+
+    def chat(self, prompt, image, meta_prompt=""):
+        messages = [meta_prompt, image, prompt]  # Gemini directly takes in PIL images
+        response = self.client.generate_content(
+            messages,
+            generation_config=genai.types.GenerationConfig(temperature=self.temperature)
+        )
+        return response.text
+
+
+class LLaVA(LanguageModel):
+    def __init__(self, server_url="http://sc2grpwk3.d2.comp.nus.edu.sg:55575/llava_chat", temperature=0.0):
+        self.server_url = server_url
+
+        self.temperature = temperature
+
+    def chat(self, prompt, image, meta_prompt=""):
+        base64_image = convert_pil_image_to_base64(image)
+        payload = {
+            "prompt": meta_prompt + '\n' + prompt,
+            "image": base64_image,
+            "max_new_tokens": 2048,
+        }
+        response = requests.post(
+            self.server_url, 
+            json=payload,
+        ).json()
+        return response["text"]
+    

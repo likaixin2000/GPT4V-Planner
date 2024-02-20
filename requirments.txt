@@ -11,3 +11,6 @@ shapely
 scikit-image
 pillow==9.5.0
 colorama
+bitsandbytes
+
+google-generativeai
