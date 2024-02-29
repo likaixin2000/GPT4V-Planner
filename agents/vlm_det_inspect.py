@@ -160,7 +160,9 @@ Note:
         )
         self.log(name="Final raw plan", log_type="info", message=final_plan_raw)
 
-        plan_code, filtered_masks = self.extract_plans_and_regions(final_plan_raw, masks)
+        plan_code, filtered_masks, box_names = self.extract_plans_and_regions(final_plan_raw, masks, objects_of_interest)
+
+        masks = Mask.from_list(mask_list=masks, names=box_names, ref_image=image)
 
         return PlanResult(
             success=True,

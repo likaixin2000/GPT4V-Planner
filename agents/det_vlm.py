@@ -64,7 +64,6 @@ Note:
     def plan(self, prompt: str, image: Image.Image):
         self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
 
-        
         # Generate detection boxes
         text_queries = COMMON_OBJECTS
         self.log(name="Detect objects", log_type="call", message=f"Queries: {text_queries}", image=image)
@@ -99,7 +98,10 @@ Note:
         )
         self.log(name="Raw plan", log_type="info", message=plan_raw)
 
-        plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
+        box_names = [box_data["box_name"] for box_data in detected_objects]
+        plan_code, filtered_masks, filtered_names = self.extract_plans_and_regions(plan_raw, masks, box_names)
+
+        masks = Mask.from_list(mask_list=masks, names=box_names, ref_image=image)
         
         return PlanResult(
             success=True,

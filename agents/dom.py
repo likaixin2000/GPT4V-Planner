@@ -8,15 +8,16 @@ from apis.language_model import LanguageModel
 from apis.detectors import Detector, COMMON_OBJECTS
 from apis.segmentors import Segmentor
 
-from utils.image_utils import resize_image, annotate_masks, visualize_image, get_visualized_image
+from utils.image_utils import resize_image, annotate_masks, get_visualized_image
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
 
 from .agent import Agent, PlanResult
+from .vlm_det import VLMDet
 
 
-class VLMDet(Agent):
-    meta_prompt = \
+class VLMDetInspect(Agent):
+    meta_prompt_plan = \
 '''
 You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. 
 You need to output your plan as python code.
@@ -31,8 +32,24 @@ Things to keep in mind:
 
 Note:
 - Do not redefine functions in the operation list.
-- A python list `regions` will be provided for you to reference the objects. Please use the format of `obj="name"`.
+- For any item referenced in your code, please use the format of `obj="object_name"`.
 - Your object list should be encompassed by a json code block "```json".
+- Your code should be surrounded by a python code block "```python".
+'''
+    meta_prompt_inspect = \
+'''
+You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. You will see an image captured by the robot's camera, in which some objects are highlighted with masks and marked with numbers.
+The plan will be given to you as python code. Your job is to replace the all `object` parameters to the correct region numbers. Then, output your final plan code.
+
+Operation list:
+{action_space}
+
+Things to keep in mind:
+{additional_meta_prompt}
+
+Note:
+- A python list `regions` will be provided for you to reference the objects. Please use the format of `obj=regions[number]`.
+- Do not define the operations or regions in your code. They will be provided in the python environment.
 - Your code should be surrounded by a python code block "```python".
 '''
 
@@ -74,19 +91,20 @@ Note:
         self.log(name="Extracted objects of interest", log_type="info", message=repr(object_names_and_aliases))
         return code_block, object_names_and_aliases
 
+
     def plan(self, prompt: str, image: Image.Image):
         self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
 
+
         # Generate a response from VLM
-        meta_prompt = self.meta_prompt.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
-        self.log(name="VLM call", log_type="call", message=f"Prompt:\n{prompt},\n Meta prompt:\n{meta_prompt}", image=image)
+        meta_prompt_plan = self.meta_prompt_plan.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
+        self.log(name="VLM call", log_type="call", message=f"Prompt:\n{prompt},\n Meta prompt:\n{meta_prompt_plan}", image=image)
         plan_raw = self.vlm.chat(
             prompt=prompt, 
             image=image, 
-            meta_prompt=meta_prompt
+            meta_prompt=meta_prompt_plan
         )
         self.log(name="Raw plan", log_type="info", message=plan_raw)
-
         # Extract objects of interest from VLM's response
         plan_code, object_names_and_aliases = self.extract_objects_of_interest_from_vlm_response(plan_raw)
         objects_of_interest = [obj["name"] for obj in object_names_and_aliases]
@@ -103,7 +121,6 @@ Note:
         logging_image = get_visualized_image(image, bboxes=[obj["bbox"] for obj in detected_objects])
         self.log(name="Detected objects", log_type="info", image=logging_image, message="\n".join([obj["box_name"] for obj in detected_objects]))
 
-
         # (kaixin) NOTE: This requires the object names to be unique.
         # Filter and select boxes with the correct name and highest score per name
         best_boxes = {}
@@ -111,7 +128,7 @@ Note:
             box_name = det["box_name"]
             if box_name not in best_boxes or det["score"] > best_boxes[box_name]["score"]:
                 best_boxes[box_name] = det
-                
+
         # Check if any object of interest is missing in the detected objects
         missing_objects = set(objects_of_interest) - set(best_boxes.keys())
         if missing_objects:
@@ -119,33 +136,41 @@ Note:
             
         # Arrange boxes in the order of objects_of_interest
         boxes_of_interest = [best_boxes[name] for name in objects_of_interest]
-
+        
         masks = self.segmentor.segment_by_bboxes(image=image, bboxes=[obj["bbox"] for obj in boxes_of_interest])
-        segment_img = annotate_masks(
+        annotated_img = annotate_masks(
             image, 
             masks=[anno["segmentation"] for anno in masks],
             label_mode=self.configs["label_mode"],
             alpha=self.configs["alpha"],
-            draw_mask=True, 
+            draw_mask=False, 
             draw_mark=True, 
-            draw_box=True
+            draw_box=False
         )
-        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=segment_img)
+        self.log(name="Segmentor segment_by_bboxes result", log_type="info", image=annotated_img)
 
-        # Replace object names with region masks
-        for index, object_name in enumerate(objects_of_interest):
-            pattern = re.compile(rf'["\']{re.escape(object_name)}["\']')
-            plan_code = pattern.sub(f"regions[{str(index)}]", plan_code)
+        # Ask the VLM to inspect the masks to disambiguate the objects
+        # This object has no state. It will be a new conversation.
+        meta_prompt_inspect = self.meta_prompt_inspect.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
+        self.log(name="VLM call: final plan", log_type="call", message=f"Prompt:\n{prompt},\n Meta prompt:\n{meta_prompt_inspect}", image=image)
+        final_plan_raw = self.vlm.chat(
+            prompt=prompt, 
+            image=annotated_img, 
+            meta_prompt=meta_prompt_inspect
+        )
+        self.log(name="Final raw plan", log_type="info", message=final_plan_raw)
 
-        masks = Mask.from_list(mask_list=masks, names=objects_of_interest, ref_image=image)
-
+        plan_code, filtered_masks = self.extract_plans_and_regions(final_plan_raw, masks)
 
         return PlanResult(
             success=True,
             plan_code=plan_code,
-            masks=masks,
-            plan_raw=plan_raw,
-            annotated_image=segment_img,
+            masks=filtered_masks,
+            plan_raw=final_plan_raw,
+            annotated_image=annotated_img,
             prompt=prompt,
-            info_dict=dict(configs=self.configs)
+            info_dict=dict(
+                configs=self.configs, 
+                plan_raw_before_inspect=plan_raw
+            )
         )

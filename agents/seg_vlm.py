@@ -89,6 +89,7 @@ Note:
         self.log(name="Raw plan", log_type="info", message=plan_raw)
         
         plan_code, filtered_masks = self.extract_plans_and_regions(plan_raw, masks)
+        masks = Mask.from_list(mask_list=masks, ref_image=image)  # No names available
         
         return PlanResult(
             success=True,

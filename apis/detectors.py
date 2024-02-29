@@ -72,7 +72,7 @@ class Detector():
 
 class OWLViT(Detector):
 
-    def __init__(self, server_url="http://phoenix0.d2.comp.nus.edu.sg:55570/owl_detect"):
+    def __init__(self, server_url="http://phoenix0.d2.comp.nus.edu.sg:55570"):
         self.server_url = server_url
 
     def detect_objects(self, image: Image.Image, text_queries: list[str], bbox_score_top_k=20, bbox_conf_threshold=0.5):
@@ -80,7 +80,7 @@ class OWLViT(Detector):
         Function to call an object detection API and return the response.
 
         Parameters:
-        - api_url (str): URL of the object detection API.
+        - image (Image): The image to detect.
         - text_queries (list of str): Text queries for object detection.
         - image_file_path (str): File path to the image to be analyzed.
         - bbox_score_top_k (int, optional): Number of top scoring bounding boxes to return. Defaults to 20.
@@ -102,16 +102,16 @@ class OWLViT(Detector):
         """
 
         # Convert image to base64
-        img_b64_str = convert_pil_image_to_base64(image.convert('RGB'))
+        base64_image = convert_pil_image_to_base64(image.convert('RGB'))
         # Constructing the POST request
         payload = {
             "text_queries": text_queries,
-            "image": img_b64_str,
+            "image": base64_image,
             "bbox_score_top_k": bbox_score_top_k,
             "bbox_conf_threshold": bbox_conf_threshold
         }
         response = requests.post(
-            self.server_url, 
+            self.server_url + "/owl_detect", 
             json=payload,
         )
         
@@ -135,3 +135,56 @@ class OWLViT(Detector):
 
         return dict_data
 
+    def match_by_image(self, image: Image.Image, query_image: Image.Image, match_threshold: float=0.2, nms_threshold: float=1.0):
+        """
+        Function to call an object detection API to match objects with the given query_image.
+
+        Parameters:
+        - image (Image): The image to detect.
+        
+        Returns:
+        - tuple: Parsed response data from the API, containing scores, boxes, and objectnesses.
+         Example result:
+        [
+            {'score': 0.3141017258167267,
+            'bbox': [0.212062269449234,
+            0.3956533372402191,
+            0.29010745882987976,
+            0.08735490590333939],
+            'box_name': 'roof',
+            'objectness': 0.09425540268421173
+            }, ...
+        ]
+        """
+        # Convert image to base64
+        base64_image = convert_pil_image_to_base64(image.convert('RGB'))
+        base64_query_image = convert_pil_image_to_base64(query_image.convert('RGB'))
+        # Constructing the POST request
+        payload = {
+            "image": base64_image,
+            "query_image": base64_query_image,
+            "match_threshold": match_threshold,
+            "nms_threshold": nms_threshold
+        }
+        response = requests.post(
+            self.server_url + "/owl_match_by_image", 
+            json=payload,
+        )
+        
+        # Check for request failure
+        if response.status_code != 200:
+            raise ConnectionError(f"Request failed with status code {response.status_code}")
+
+        resp_data = json.loads(response.text)
+        
+        # Retrieve the relevant data
+        scores = resp_data['scores']
+        bboxes = resp_data['bboxes']        
+        
+        # Assert that all lists have the same length
+        assert len({len(scores), len(bboxes)}) == 1, "Server returned data with different lengths. Something is wrong, most probably on the server side."
+
+        dict_data = [{'score': score, 'bbox': bbox} 
+                 for score, bbox in zip(scores, bboxes)]
+
+        return dict_data

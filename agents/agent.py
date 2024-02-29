@@ -6,7 +6,7 @@ from PIL import Image
 
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
-
+from utils.masks import Mask
 
 DEFAULT_ACTION_SPACE = """
  - pick(obj)
@@ -29,7 +29,7 @@ class PlanResult:
         success: bool = False, 
         exception: Optional[Exception] = None, 
         plan_raw: Optional[str] = None, 
-        masks: Optional[list[Any]] = None, 
+        masks: Optional[list[Mask]] = None, 
         prompt: Optional[str] = None, 
         plan_code: Optional[str] = None, 
         annotated_image: Optional[Image.Image] = None, 
@@ -110,7 +110,7 @@ class Agent():
         refs.sort()
         return refs
 
-    def extract_plans_and_regions(self, text: str, regions: list):
+    def extract_plans_and_regions(self, text: str, regions: list, *lists):
         """
         Extracts a Python code block from the llm/vlm's response and updates the region index references within the code.
 
@@ -123,6 +123,7 @@ class Agent():
         Parameters:
         text (str): The text string containing the Python code block.
         regions (list): The list of regions that are referenced in the code block.
+        lists: Other arrays that requires remapping.
 
         Returns:
         tuple: A tuple containing two elements:
@@ -153,7 +154,12 @@ class Agent():
         except IndexError as e:  # Invalid index is used
             raise BadCodeError("Invalid region index is referenced.")
 
+        # Remap additional arrays
+        remapped_arrays = []
+        for li in lists:
+            remapped_arrays.append([li[index - 1] for index in refs])
+
         self.log(name="Extracted plan code", log_type="info", message=code_block)
         self.log(name="Extracted masks", log_type="data", content=filtered_regions)
-        return code_block, filtered_regions
+        return code_block, filtered_regions, *remapped_arrays
     

@@ -69,6 +69,15 @@ def annotate_masks(image: Image.Image, masks: list, label_mode='1', alpha=0.5, d
     return Image.fromarray(demo.get_image())
 
 
+def annotate_positions_in_mask(image: Image.Image, mask, positions: list[tuple[int]]) -> Image.Image:
+    visualizer = Visualizer(image, metadata=None)
+    width, height = image.size
+    pixel_positions = [(x*width, y*height) for (x,y) in positions]
+    for idx, position in enumerate(pixel_positions, start=1):
+        visualizer.draw_text(text=str(idx), position=position, font_size=25)
+    return Image.fromarray(visualizer.get_output().get_image())
+
+
 def visualize_image(image, masks=None, bboxes=None, points=None, show=True, return_img=False):
     img_height, img_width = np.array(image).shape[:2]
     plt.tight_layout()

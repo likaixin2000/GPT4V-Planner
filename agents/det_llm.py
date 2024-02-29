@@ -11,6 +11,7 @@ from apis.segmentors import Segmentor
 from utils.image_utils import annotate_masks, get_visualized_image
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
+from utils.masks import Mask
 
 from .agent import Agent, PlanResult
 
@@ -199,6 +200,7 @@ Note:
             pattern = r'obj=[\'"]' + re.escape(object_name) + r'[\'"]'
             plan_code = re.sub(pattern, f'regions[{i}]', plan_code)
 
+        masks = Mask.from_list(mask_list=masks, names=objects_of_interest, ref_image=image)
 
         return PlanResult(
             success=True,

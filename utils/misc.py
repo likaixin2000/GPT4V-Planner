@@ -8,3 +8,4 @@ def detect_environment():
             return "Unknown"
     except NameError:
         return "Python Script"
+    
