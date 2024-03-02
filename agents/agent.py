@@ -162,4 +162,3 @@ class Agent():
         self.log(name="Extracted plan code", log_type="info", message=code_block)
         self.log(name="Extracted masks", log_type="data", content=filtered_regions)
         return code_block, filtered_regions, *remapped_arrays
-    

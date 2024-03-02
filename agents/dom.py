@@ -3,20 +3,21 @@ import re
 from typing import List, Optional, Dict, Any
 
 from PIL import Image
+import numpy as np
 
 from apis.language_model import LanguageModel
 from apis.detectors import Detector, COMMON_OBJECTS
 from apis.segmentors import Segmentor
 
-from utils.image_utils import resize_image, annotate_masks, get_visualized_image
+from utils.image_utils import resize_image, annotate_masks, get_visualized_image, annotate_positions_in_image
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
+from utils.masks import Mask
 
 from .agent import Agent, PlanResult
-from .vlm_det import VLMDet
 
 
-class VLMDetInspect(Agent):
+class DOM(Agent):
     meta_prompt_plan = \
 '''
 You are in charge of controlling a robot. You will be given a list of operations you are allowed to perform, along with a task to solve. 
@@ -94,7 +95,7 @@ Note:
 
     def plan(self, prompt: str, image: Image.Image):
         self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
-
+        self.image = image
 
         # Generate a response from VLM
         meta_prompt_plan = self.meta_prompt_plan.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
@@ -121,7 +122,7 @@ Note:
         logging_image = get_visualized_image(image, bboxes=[obj["bbox"] for obj in detected_objects])
         self.log(name="Detected objects", log_type="info", image=logging_image, message="\n".join([obj["box_name"] for obj in detected_objects]))
 
-        # (kaixin) NOTE: This requires the object names to be unique.
+        # NOTE: This requires the object names to be unique.
         # Filter and select boxes with the correct name and highest score per name
         best_boxes = {}
         for det in detected_objects:
@@ -160,7 +161,9 @@ Note:
         )
         self.log(name="Final raw plan", log_type="info", message=final_plan_raw)
 
-        plan_code, filtered_masks = self.extract_plans_and_regions(final_plan_raw, masks)
+        plan_code, filtered_masks, box_names = self.extract_plans_and_regions(final_plan_raw, masks, objects_of_interest)
+
+        masks = Mask.from_list(mask_list=masks, names=box_names, ref_image=image)
 
         return PlanResult(
             success=True,
@@ -174,3 +177,52 @@ Note:
                 plan_raw_before_inspect=plan_raw
             )
         )
+    
+
+    def query_place_position(
+            self, 
+            mask: Mask,
+            intervals: list[int, int] = (3, 3), 
+            margins: list[int, int] = (3, 3),
+            orientation: str = "on_top_of"
+    ) -> list[float, float]:
+        # Crop the object placed on
+        cropped_image, cropped_box = mask.crop_obj(padding=0.3)
+
+        x_interval, y_interval = intervals
+        x_margin, y_margin = margins
+        x = np.linspace(0 + x_margin, 1 - x_margin, x_interval)
+        y = np.linspace(0 + y_margin, 1 - y_margin, y_interval)
+
+        # Create the meshgrid
+        X, Y = np.meshgrid(x, y)
+        X = X.flatten()
+        Y = Y.flatten()
+        positions = np.vstack([X, Y]).T
+        
+        height, width = mask.mask.shape
+        viewport_size = (
+            width * (cropped_box[2] - cropped_box[0]), 
+            height * (cropped_box[3] - cropped_box[1])
+        )
+
+        annotated_image = annotate_positions_in_image(cropped_image, positions, font_size=min(viewport_size) * 0.1)
+        
+        # Query VLM
+        position_response = self.vlm.chat(
+            prompt=f"Please carefully review the image with numbers marked on it to denote locations. It shows a {mask.name} and I want to put an object (not shown in the image) {orientation} of it. You should select the safest and suitable position for placing it, ensuring there is no collision with existing elements. Choose and output only one number representing the position.", 
+            image=annotated_image, 
+            meta_prompt=""
+        )
+        position_index = int(position_response.strip()) - 1
+        position = positions[position_index]
+
+        # Restore the location to the original image
+        cropped_box_width = cropped_box[2] - cropped_box[0]
+        cropped_box_height = cropped_box[3] - cropped_box[1]
+        position = [
+            cropped_box[0] + position[0] * cropped_box_width, 
+            cropped_box[1] + position[1] * cropped_box_height
+        ]
+
+        return position

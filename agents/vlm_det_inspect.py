@@ -11,9 +11,9 @@ from apis.segmentors import Segmentor
 from utils.image_utils import resize_image, annotate_masks, get_visualized_image
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
+from utils.masks import Mask
 
 from .agent import Agent, PlanResult
-from .vlm_det import VLMDet
 
 
 class VLMDetInspect(Agent):
@@ -94,7 +94,7 @@ Note:
 
     def plan(self, prompt: str, image: Image.Image):
         self.logger.log(name="Configs", log_type="info", message=repr(self.configs))
-
+        self.image = image
 
         # Generate a response from VLM
         meta_prompt_plan = self.meta_prompt_plan.format(action_space=self.action_space, additional_meta_prompt = self.additional_meta_prompt)
@@ -121,7 +121,7 @@ Note:
         logging_image = get_visualized_image(image, bboxes=[obj["bbox"] for obj in detected_objects])
         self.log(name="Detected objects", log_type="info", image=logging_image, message="\n".join([obj["box_name"] for obj in detected_objects]))
 
-        # (kaixin) NOTE: This requires the object names to be unique.
+        # NOTE: This requires the object names to be unique.
         # Filter and select boxes with the correct name and highest score per name
         best_boxes = {}
         for det in detected_objects:
@@ -176,3 +176,4 @@ Note:
                 plan_raw_before_inspect=plan_raw
             )
         )
+    

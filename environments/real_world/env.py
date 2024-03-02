@@ -7,6 +7,7 @@ from environments import Environment, PlanExecutionError
 
 from utils import logging
 from utils.image_utils import get_visualized_image
+from utils.masks import Mask
 
 class RealWorldEnv(Environment):
     def __init__(
@@ -29,22 +30,40 @@ class RealWorldEnv(Environment):
         image = Image.fromarray(self.effector.get_img())
         return image
 
-    def get_execution_context(self):
+    def get_execution_context(self, agent):
         """Create tools and actions for LLMs to call."""
 
         # -------------------------------------------------------------------------------------
         # Define tools here.
+        grasper_holding_obj = None
 
         def pick(obj):
+            nonlocal grasper_holding_obj
+
             mask = obj
             self.effector.pick(mask)
+            grasper_holding_obj = mask
 
         def place(obj, orientation='notimplemented'):
-            target_mask = obj
-            self.effector.placeon(target_mask)
-
-        def move(name):
+            # TODO: Wait for the grasper API
             pass
+            # nonlocal grasper_holding_obj
+
+            # place_mask: Mask = obj
+            # # Translate mask to center point
+            # pick_point = find_mask_center_point(grasper_holding_obj)
+            # if hasattr(agent, "query_place_position"):
+            #     # Ask VLM to find a good position to place the object
+            #     place_point = agent.query_place_position(
+            #         # Do not update image here
+            #         mask=place_mask,
+            #         intervals=(3, 3), 
+            #         margins=(3, 3)
+            #     )
+            # else:
+            #     place_point = find_mask_center_point(obj)
+            # self.effector.placeon(???)
+            # grasper_holding_obj = None
 
         # End of tools definition
         # -------------------------------------------------------------------------------------
@@ -77,7 +96,7 @@ class RealWorldEnv(Environment):
             grasper_holding = obj
 
             # Log
-            log_image = get_visualized_image(plan_image, masks=[obj])
+            log_image = get_visualized_image(plan_image, masks=[obj.mask])
             inspect_logger.log(name="Action `pick`", log_type="action", image=log_image)
 
 
@@ -88,7 +107,7 @@ class RealWorldEnv(Environment):
             grasper_holding = None
  
             # Log
-            log_image = get_visualized_image(plan_image, masks=[obj])
+            log_image = get_visualized_image(plan_image, masks=[obj.mask])
             inspect_logger.log(name="Action `place`", log_type="action", image=log_image)
 
         # End of tools definition

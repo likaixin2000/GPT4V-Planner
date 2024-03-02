@@ -520,7 +520,7 @@ class Visualizer:
             size=font_size * self.output.scale,
             family="sans-serif",
             bbox={"facecolor": bbox_background, "alpha": 0.8, "pad": 0.7, "edgecolor": "none"},
-            verticalalignment="top",
+            verticalalignment="center",
             horizontalalignment=horizontal_alignment,
             color=color,
             zorder=10,

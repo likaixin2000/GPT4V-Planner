@@ -11,6 +11,7 @@ from apis.segmentors import Segmentor
 from utils.image_utils import annotate_masks
 from utils.logging import CustomLogger, get_logger
 from utils.exceptions import *
+from utils.masks import Mask
 
 from .agent import Agent, PlanResult
 

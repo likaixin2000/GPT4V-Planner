@@ -135,25 +135,25 @@ class OWLViT(Detector):
 
         return dict_data
 
-    def match_by_image(self, image: Image.Image, query_image: Image.Image, match_threshold: float=0.2, nms_threshold: float=1.0):
+    def match_by_image(self, image: Image.Image, query_image: Image.Image, match_threshold: float=0.8, nms_threshold: float=1.0):
         """
-        Function to call an object detection API to match objects with the given query_image.
+        Calls an object detection API to match objects within the provided 'image' against a 'query_image'.
 
         Parameters:
-        - image (Image): The image to detect.
-        
+        - image (Image.Image): The target image in which to detect and match objects.
+        - query_image (Image.Image): The query image containing the object(s) to match against the target image.
+        - match_threshold (float, optional): The threshold for considering a detection a match. Defaults to 0.8.
+        - nms_threshold (float, optional): The threshold for non-maximum suppression. Defaults to 1.0 - no suppression.
+
         Returns:
-        - tuple: Parsed response data from the API, containing scores, boxes, and objectnesses.
-         Example result:
+        - list of dicts: Each dict in the list corresponds to a matched object and contains 'score', 'bbox' (bounding box coordinates), 'box_name' (name of the detected object), and 'objectness' (a measure of how likely it is that the box contains any object).
+        Example result format:
         [
-            {'score': 0.3141017258167267,
-            'bbox': [0.212062269449234,
-            0.3956533372402191,
-            0.29010745882987976,
-            0.08735490590333939],
-            'box_name': 'roof',
-            'objectness': 0.09425540268421173
-            }, ...
+            {
+                'score': 0.3141,
+                'bbox': [0.212, 0.396, 0.290, 0.087]
+            }, 
+            ...
         ]
         """
         # Convert image to base64
@@ -184,7 +184,6 @@ class OWLViT(Detector):
         # Assert that all lists have the same length
         assert len({len(scores), len(bboxes)}) == 1, "Server returned data with different lengths. Something is wrong, most probably on the server side."
 
-        dict_data = [{'score': score, 'bbox': bbox} 
-                 for score, bbox in zip(scores, bboxes)]
+        dict_data = [{'score': score, 'bbox': bbox} for score, bbox in zip(scores, bboxes)]
 
         return dict_data

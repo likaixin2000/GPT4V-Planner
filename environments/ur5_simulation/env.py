@@ -1,5 +1,8 @@
 import os
 import sys
+
+from agents.agent import Agent
+from utils.masks import Mask
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "simulation"))
 import time
 
@@ -71,7 +74,7 @@ class UR5SimulationEnv(Environment):
         image = Image.fromarray(color)
         return image
 
-    def get_execution_context(self):
+    def get_execution_context(self, agent: Agent):
         """Create tools and actions for LLMs to call."""
 
         # Define tools here.
@@ -84,18 +87,36 @@ class UR5SimulationEnv(Environment):
             nonlocal grasper_holding
             if grasper_holding is not None:
                 raise PlanExecutionError("Trying to pick an object when the grasper is currently holding an object.")
-            grasper_holding = obj
+            
+            mask: Mask = obj
+            grasper_holding = mask
 
         def place(obj, orientation='notimplemented'):
             nonlocal grasper_holding
             if grasper_holding is None:
                 raise PlanExecutionError("Trying to place an object when the grasper is currently holding nothing.")
+
+            place_mask: Mask = obj
             # Translate mask to center point
             pick_point = find_mask_center_point(grasper_holding)
-            place_point = find_mask_center_point(obj)
+            if hasattr(agent, "query_place_position"):
+                # Ask VLM to find a good position to place the object
+                place_point = agent.query_place_position(
+                    # Do not update image here
+                    mask=place_mask,
+                    intervals=(4, 4), 
+                    margins=(0.06, 0.1)
+                )
+            else:
+                place_point = find_mask_center_point(obj)
+            
             # Actual call to simulated env
             self._ur5_sim_env.step(pick_point, place_point)
+
+            picked_obj_mask = grasper_holding
             grasper_holding = None
+            # Re-identify the picked object and update the mask
+            picked_obj_mask.reidentify(new_image=self.get_image(), place_point=place_point, detector=agent.detector)
 
             # Logging
             if self.logger is not None:

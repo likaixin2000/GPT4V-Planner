@@ -69,12 +69,12 @@ def annotate_masks(image: Image.Image, masks: list, label_mode='1', alpha=0.5, d
     return Image.fromarray(demo.get_image())
 
 
-def annotate_positions_in_mask(image: Image.Image, mask, positions: list[tuple[int]]) -> Image.Image:
+def annotate_positions_in_image(image: Image.Image, positions: list[tuple[int]], font_size=25) -> Image.Image:
     visualizer = Visualizer(image, metadata=None)
     width, height = image.size
-    pixel_positions = [(x*width, y*height) for (x,y) in positions]
+    pixel_positions = [(x * width, y * height) for (x, y) in positions]  # Not accurate for drawing at the center of the text, but enough
     for idx, position in enumerate(pixel_positions, start=1):
-        visualizer.draw_text(text=str(idx), position=position, font_size=25)
+        visualizer.draw_text(text=str(idx), position=position, font_size=font_size)
     return Image.fromarray(visualizer.get_output().get_image())
 
 
