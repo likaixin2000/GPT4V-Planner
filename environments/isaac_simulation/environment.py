@@ -43,10 +43,10 @@ class Environment():
         gym = gymapi.acquire_gym()
         plane_params = gymapi.PlaneParams()
         plane_params.normal = gymapi.Vec3(0, 0, 1) # z-up!
-        plane_params.distance = 0
-        plane_params.static_friction = 1
-        plane_params.dynamic_friction = 1
-        plane_params.restitution = 0
+        # plane_params.distance = 0
+        # plane_params.static_friction = 1
+        # plane_params.dynamic_friction = 1
+        # plane_params.restitution = 0
 
         # create the ground plane
         gym.add_ground(self.sim, plane_params)
@@ -64,11 +64,18 @@ class Environment():
         
         asset_options = gymapi.AssetOptions()
         asset_options.fix_base_link = True
-        asset_options.armature = 0.01
+        #asset_options.armature = 0.01
         asset_options.use_mesh_materials = True
+        asset_options.armature = 0.001
+        #asset_options.fix_base_link = True
+        asset_options.thickness = 0.002
         #asset_options.disable_gravity = 0
+        asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
 
         table_asset = gym.load_asset(self.sim, self.asset_root, "table/table.urdf", asset_options)
+        
+        asset_options.fix_base_link = False # allow the laptop to fall
+        
         laptop_asset = gym.load_asset(self.sim, self.asset_root, "laptop/laptop.urdf", asset_options)
         cup_asset = gym.load_asset(self.sim, self.asset_root, "yellow_cup/model.urdf", asset_options)
 
@@ -77,17 +84,28 @@ class Environment():
         pose_table.p = gymapi.Vec3(0, 3., 0.02)
         pose_table.r = gymapi.Quat(0, 0, 0, 1)
         #pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), -0.5 * math.pi)
-        table_handle = gym.create_actor(self.env,table_asset,pose_table,"table",0,1)
+        table_handle = gym.create_actor(self.env,table_asset,pose_table,"table",0,0)
+
+        
 
         pose_labtop = gymapi.Transform()
-        pose_labtop.p = gymapi.Vec3(-0.1, 3.3, 0.025)
+        pose_labtop.p = gymapi.Vec3(-0.1, 3.3, 0.2)
         pose_labtop.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0.09, 0.09, 2), 0.5 * np.pi)
-        labtop_handle = gym.create_actor(self.env,laptop_asset,pose_labtop,"laptop",0,1)
+        labtop_handle = gym.create_actor(self.env,laptop_asset,pose_labtop,"laptop",0,0)
 
         pose_cup = gymapi.Transform()
-        pose_cup.p = gymapi.Vec3(0.1, 2.8, 0.075)
+        pose_cup.p = gymapi.Vec3(0.1, 2.8, 1)# higher than the table
         pose_cup.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0., 0, 1), 0.5 * np.pi)
-        cup_handle = gym.create_actor(self.env,cup_asset,pose_cup,"cup",0,1)
+        cup_handle = gym.create_actor(self.env,cup_asset,pose_cup,"cup",0,0)
+
+        box_size = 0.05
+        box_asset = gym.create_box(self.sim, box_size, box_size, box_size, asset_options)
+        pose_box = gymapi.Transform()
+        pose_box.p = gymapi.Vec3(0.1, 3, 0.4)
+        pose_box.r = gymapi.Quat(0, 0, 0, 1)
+        box_handle = gym.create_actor(self.env, box_asset, pose_box, "box", 0, 0)
+
+
 
     def set_camera(self):
         gym = gymapi.acquire_gym()
