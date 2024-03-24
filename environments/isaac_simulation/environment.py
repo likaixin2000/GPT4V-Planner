@@ -114,18 +114,18 @@ class Environment():
         camera_property.height = 1080
 
         camera_handle = gym.create_camera_sensor(self.env,camera_property)
-        # camera_position = gymapi.Vec3(0, 3, 2)
-        # camera_target = gymapi.Vec3(0.3, 3, 0.)
-        # gym.set_camera_location(camera_handle,env, camera_position, camera_target)
-        camera_transform = gymapi.Transform()
-        camera_transform.p = gymapi.Vec3(0, 3, 0.61)
-        camera_transform.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.math.pi/2) 
 
-        # camera_transform.p = gymapi.Vec3(-1, 3, 0.05)
-        # camera_transform.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), 0.) 
-
-
-        gym.set_camera_transform(camera_handle,self.env,camera_transform)
+        # 俯视
+        camera_position = gymapi.Vec3(0, 3, 2)
+        camera_target = gymapi.Vec3(0.3, 3, 0.)
+        gym.set_camera_location(camera_handle,env, camera_position, camera_target)
+        
+        # 侧视
+        # camera_transform = gymapi.Transform()
+        # camera_transform.p = gymapi.Vec3(0, 3, 0.61)
+        # camera_transform.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.math.pi/2) 
+        # gym.set_camera_transform(camera_handle,self.env,camera_transform)
+        
         self.camera_properties = camera_property
 
 
