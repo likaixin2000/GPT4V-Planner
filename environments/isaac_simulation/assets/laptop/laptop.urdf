@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<robot name="labtop.urdf">
+  <link name="baseLink">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="ObjLib04_MODEL.obj" scale="0.5 0.5 0.5"/>
+      </geometry>
+      <material name="white">
+       <color rgba="1 1 1 1"/>
+     </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="ObjLib04_MODEL.obj" scale="0.5 0.5 0.5"/>
+        <!-- You could also specify the collision (for the ObjLib04_MODEL) with a "box" tag: -->
+        <!-- <box size=".06 .06 .06"/> -->
+      </geometry>
+    </collision>
+  </link>
+</robot>
+
+ <!-- [0.21446500247716904, 0.12842499738931656, 0.12719999997958076] -->
