@@ -5,6 +5,7 @@ from .det_vlm import DetVLM
 from .det_llm import DetLLM
 from .vlm_det import VLMDet
 from .vlm_det_inspect import VLMDetInspect
+from .dom import DOM
 
 
 def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None, configs=None, logger=None):
@@ -46,6 +47,9 @@ def agent_factory(agent_type, segmentor=None, vlm=None, detector=None, llm=None,
 
     elif agent_type == 'VLMDetInspect':
         return VLMDetInspect(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
+
+    elif agent_type == 'DOM':
+        return DOM(segmentor=segmentor, detector=detector, vlm=vlm, configs=configs)
     
     else:
         raise ValueError("Unknown agent type.")

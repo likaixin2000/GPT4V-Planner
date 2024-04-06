@@ -8,7 +8,7 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 from isaacgym.torch_utils import *
 from PIL import Image
-from util import *
+from environments.isaac_simulation.examples.util import *
 import torch 
 
 class Environment():
