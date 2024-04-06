@@ -1,6 +1,8 @@
 temp/
 results/
 service/owl_vit/big_vision
+experiments/isaac/test*
+**/*.pkl
 
 ##### Project Specification #####
 *.pth

@@ -1,6 +1,6 @@
 import json
 from PIL import Image
-
+from typing import List as list
 import requests
 
 from utils.image_utils import convert_pil_image_to_base64

@@ -1,6 +1,7 @@
 import json
 import re
-from typing import List, Optional, Dict, Any
+from typing import  Optional, Dict, Any
+# from typing import List as list
 
 from PIL import Image
 import numpy as np
@@ -182,10 +183,10 @@ Note:
     def query_place_position(
             self, 
             mask: Mask,
-            intervals: list[int, int] = (3, 3), 
-            margins: list[int, int] = (3, 3),
+            intervals = (3, 3), 
+            margins = (3, 3),
             orientation: str = "on_top_of"
-    ) -> list[float, float]:
+    ):
         # Crop the object placed on
         cropped_image, cropped_box = mask.crop_obj(padding=0.3)
 
