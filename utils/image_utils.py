@@ -7,6 +7,8 @@ import matplotlib.patches as patches
 import numpy as np
 import base64
 from io import BytesIO
+from typing import List as list
+from typing import Tuple as tuple
 
 from PIL import Image
 from torchvision import transforms

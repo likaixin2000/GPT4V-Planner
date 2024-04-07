@@ -1,6 +1,7 @@
 import json
 import re
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
+# from typing import List as list
 
 from PIL import Image
 
@@ -12,7 +13,7 @@ DEFAULT_ACTION_SPACE = """
  - pick(obj)
  - place(obj, orientation, offset=None). 
    - `obj` is the destination object, around which you want to put down the object the robot is currently holding. 
-   - `orientation` in ['inside', 'on_top_of', 'left', 'right', 'up', 'down']
+   - `orientation` in ['inside', 'on_top_of', 'left', 'right', 'up', 'down','to_the_bottom_of','to_the_top_of']
    - `offset`: Normalized positions from 0 to 1 within the object region. [0.0, 0.0] is the top-left corner and [1.0, 1.0] is the bottom-right corner. 
 Only applicable when orientation="inside" or "on_top_of". You should decide carefully on this to avoid object collisions.
  - open(obj)
@@ -29,7 +30,7 @@ class PlanResult:
         success: bool = False, 
         exception: Optional[Exception] = None, 
         plan_raw: Optional[str] = None, 
-        masks: Optional[list[Mask]] = None, 
+        masks = None, 
         prompt: Optional[str] = None, 
         plan_code: Optional[str] = None, 
         annotated_image: Optional[Image.Image] = None, 

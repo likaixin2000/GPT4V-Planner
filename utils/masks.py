@@ -1,6 +1,7 @@
 from typing import Optional, Tuple, Union
 from PIL import Image
 import numpy as np
+from typing import List as list
 
 def scale_ratio_box_to_pixel(x1, y1, x2, y2, *, width, height):
     x1 *= width
@@ -37,7 +38,7 @@ class Mask:
             assert len(mask_list) == len(names)
 
         results = []
-        for i in len(mask_list):
+        for i in range(len(mask_list)):
             name = names[i] if names else None
             results.append(
                 cls(
