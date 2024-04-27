@@ -1,7 +1,8 @@
 from typing import Optional, Tuple, Union
+from typing import List as list
 from PIL import Image
 import numpy as np
-from typing import List as list
+import cv2
 
 def scale_ratio_box_to_pixel(x1, y1, x2, y2, *, width, height):
     x1 *= width
@@ -133,6 +134,20 @@ class Mask:
     #     # Update mask
     #     self.mask = segmentor.segment_by_bboxes(new_image, bboxes=[closest_match])[0]["segmentation"]
 
+    def find_mask_center_point(self):
+        binary_mask = self.mask
+        binary_mask = (binary_mask > 0).astype(np.uint8) * 255  # Make cv2 happy
+        height, width = binary_mask.shape
+        binary_mask = np.pad(binary_mask, ((1, 1), (1, 1)), 'constant')
+        mask_dt = cv2.distanceTransform(binary_mask, cv2.DIST_L2, 0)
+        mask_dt = mask_dt[1:-1, 1:-1]
+        max_dist = np.max(mask_dt)
+        coords_y, coords_x = np.where(mask_dt == max_dist)
+        # Only take one
+        coords_x = coords_x[0]
+        coords_y = coords_y[0]
+    
+        return coords_x / width, coords_y / height
 
     def reidentify(self, new_image: Image, place_point: list[float], detector, segmentor):
         if self.ref_image is None:
