@@ -26,15 +26,17 @@ def find_mask_center_point(binary_mask):
 class ISAACSimulationEnv():
     def __init__(
             self,
-            enable_logging: bool = True
+            enable_logging: bool = True,
+            enable_gui: bool = True,
         ):
         self.task:Task=None
         # self._isaac_sim_env = None
         self.enable_logging = enable_logging
         self.logger = logging.get_logger() if enable_logging else None
+        self.enable_gui = enable_gui
 
     def setup(self,task_name:str):
-        self.task = task_dic[task_name]()
+        self.task = task_dic[task_name](enable_gui=self.enable_gui)
         self.task.reset()
 
     # return RGB image
