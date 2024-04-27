@@ -9,6 +9,7 @@ from utils import logging
 from utils.image_utils import get_visualized_image
 from utils.masks import Mask
 
+
 class RealWorldEnv(Environment):
     def __init__(
             self,
@@ -30,7 +31,7 @@ class RealWorldEnv(Environment):
         image = Image.fromarray(self.effector.get_img())
         return image
 
-    def get_execution_context(self, agent):
+    def get_execution_context(self, agent, logger=None):
         """Create tools and actions for LLMs to call."""
 
         # -------------------------------------------------------------------------------------
@@ -44,26 +45,27 @@ class RealWorldEnv(Environment):
             self.effector.pick(mask)
             grasper_holding_obj = mask
 
-        def place(obj, orientation='notimplemented'):
-            # TODO: Wait for the grasper API
-            pass
-            # nonlocal grasper_holding_obj
+        def place(obj, orientation='notimplemented', offset=None):
+            nonlocal grasper_holding_obj
 
-            # place_mask: Mask = obj
-            # # Translate mask to center point
-            # pick_point = find_mask_center_point(grasper_holding_obj)
-            # if hasattr(agent, "query_place_position"):
-            #     # Ask VLM to find a good position to place the object
-            #     place_point = agent.query_place_position(
-            #         # Do not update image here
-            #         mask=place_mask,
-            #         intervals=(3, 3), 
-            #         margins=(3, 3)
-            #     )
-            # else:
-            #     place_point = find_mask_center_point(obj)
-            # self.effector.placeon(???)
-            # grasper_holding_obj = None
+            place_mask: Mask = obj
+            if hasattr(agent, "query_place_position"):
+                # Ask VLM to find a good position to place the object
+                place_point = agent.query_place_position(
+                    # Do not update image here
+                    mask=place_mask,
+                    intervals=(3, 3), 
+                    margins=(3, 3)
+                )
+                if logger:
+                    logger.log(name="Query place position", log_type="action", image=get_visualized_image(self.get_image(), masks=[place_mask.mask], points=[place_point]))
+            else:
+                place_point = obj.find_mask_center_point()
+            self.effector.placeon(place_point)
+            grasper_holding_obj = None
+
+            # Re-identify the picked object and update the mask
+            place_mask.reidentify(new_image=self.get_image(), place_point=place_point, detector=agent.detector)
 
         # End of tools definition
         # -------------------------------------------------------------------------------------
