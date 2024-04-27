@@ -11,13 +11,15 @@ from PIL import Image
 # from environments.isaac_simulation.examples.util import *
 import torch 
 
+import threading
+import time
 
 CAMERA_WIDTH = 1280
 CAMERA_HEIGHT = 720
 
 
 class Environment():
-    def __init__(self,asset_root):
+    def __init__(self,asset_root, enable_gui=True):
         self.asset_root = asset_root
         self.sim = None
         self.env = None
@@ -25,11 +27,43 @@ class Environment():
         self.handle_map = {}
         self.camera_handle = None
 
+        self.enable_gui = enable_gui
+
     def reset(self):
         self.set_sim()
         self.set_ground()
         self.set_env()
         self.set_table()
+        if self.enable_gui:
+            self.setup_gui()
+            self.start_ui_thread(1/30)
+
+
+    def setup_gui(self):
+        gym = gymapi.acquire_gym()
+        camera_properties = gymapi.CameraProperties()
+        camera_properties.width = CAMERA_WIDTH
+        camera_properties.height = CAMERA_HEIGHT
+        self.viewer = gym.create_viewer(self.sim, camera_properties)
+        gym.subscribe_viewer_keyboard_event(self.viewer,gymapi.KEY_R,"reset")
+        gym.viewer_camera_look_at(self.viewer, None, gymapi.Vec3(-0.01, 3, 1.1), gymapi.Vec3(0, 3, 0))
+
+    def start_ui_thread(self, interval):
+        def ui_task():
+            while True:
+                self.update_ui()
+                time.sleep(interval)  # Interval in seconds
+        
+        # Create and start the thread
+        thread = threading.Thread(target=ui_task)
+        thread.daemon = True  # This ensures the thread exits when the main program does
+        thread.start()
+
+    def update_ui(self):
+        gym = gymapi.acquire_gym()
+        if self.enable_gui:
+            gym.draw_viewer(self.viewer, self.sim, True)
+            gym.sync_frame_time(self.sim) 
 
     def set_sim(self):
         gym = gymapi.acquire_gym()
@@ -88,6 +122,7 @@ class Environment():
             gym.simulate(self.sim)
             gym.fetch_results(self.sim, True)
             gym.step_graphics(self.sim)
+
 
     def set_camera_by_target(self,position,target):
         gym = gymapi.acquire_gym()

@@ -4,8 +4,8 @@ from .task import Task
 import numpy as np
 
 class NeedCup(Task):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def reset(self):
         super().reset()

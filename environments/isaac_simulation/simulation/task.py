@@ -4,11 +4,11 @@ from .environment import Environment
 from . import simulation_utils as utils
 
 class Task():
-    def __init__(self,asset_root=None):
+    def __init__(self, asset_root=None, enable_gui=False):
         if asset_root is None:
-            self._env = Environment(asset_root=os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "assets"))
+            self._env = Environment(asset_root=os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "assets"), enable_gui=enable_gui)
         else:
-            self._env = Environment(asset_root=asset_root)
+            self._env = Environment(asset_root=asset_root, enable_gui=enable_gui)
 
         self.pixel_size = 1 / 1066 # when camera pose is at z=1 and image size is 1280*720
 
