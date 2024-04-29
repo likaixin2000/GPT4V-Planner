@@ -1,5 +1,6 @@
 from functools import partial
 
+import numpy as np
 from PIL import Image
 
 from apis.detectors import Detector, OWLViT, COMMON_OBJECTS
@@ -42,30 +43,39 @@ class RealWorldEnv(Environment):
             nonlocal grasper_holding_obj
 
             mask = obj
-            self.effector.pick(mask)
+            self.effector.pick(mask.mask)
             grasper_holding_obj = mask
 
-        def place(obj, orientation='notimplemented', offset=None):
+        def place(obj, orientation='not implemented', offset='not implemented'):
             nonlocal grasper_holding_obj
 
-            place_mask: Mask = obj
+            place_obj: Mask = obj
             if hasattr(agent, "query_place_position"):
                 # Ask VLM to find a good position to place the object
                 place_point = agent.query_place_position(
                     # Do not update image here
-                    mask=place_mask,
-                    intervals=(3, 3), 
-                    margins=(3, 3)
+                    mask=place_obj,
+                    orientation=orientation,
+                    num_marks=(3, 3), 
+                    margins=(0.1, 0.1)
                 )
                 if logger:
-                    logger.log(name="Query place position", log_type="action", image=get_visualized_image(self.get_image(), masks=[place_mask.mask], points=[place_point]))
+                    logger.log(name="Query place position", log_type="action", image=get_visualized_image(self.get_image(), masks=[place_obj.mask], points=[place_point]))
             else:
                 place_point = obj.find_mask_center_point()
-            self.effector.placeon(place_point)
-            grasper_holding_obj = None
+
+            # Convert place point to integer coordinates
+            place_mask = np.zeros_like(place_obj.mask).astype(np.uint8)
+            viewport_x, viewport_y = place_mask.shape[1], place_mask.shape[0]
+            place_point_int = (int(viewport_x * place_point[0]), int(viewport_y * place_point[1]))
+            # Erode the mask around the center point
+            place_mask[place_point_int[1]-5:place_point_int[1]+5, place_point_int[0]-5:place_point_int[0]+5] = 1
+            self.effector.placeon(place_mask)
 
             # Re-identify the picked object and update the mask
-            place_mask.reidentify(new_image=self.get_image(), place_point=place_point, detector=agent.detector)
+            grasper_holding_obj.reidentify(new_image=self.get_image(), place_point=place_point, detector=agent.detector, segmentor=agent.segmentor)
+
+            grasper_holding_obj = None
 
         # End of tools definition
         # -------------------------------------------------------------------------------------
@@ -102,7 +112,7 @@ class RealWorldEnv(Environment):
             inspect_logger.log(name="Action `pick`", log_type="action", image=log_image)
 
 
-        def place(obj, orientation='notimplemented'):
+        def place(obj, orientation='not implemented', offset='not implemented'):
             nonlocal grasper_holding
             if grasper_holding is None:
                 raise PlanExecutionError("Trying to place an object when the grasper is currently holding nothing.")

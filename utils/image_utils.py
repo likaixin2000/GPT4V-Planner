@@ -45,7 +45,16 @@ def convert_pil_image_to_base64(image: Image) -> str:
 #     return Image.fromarray(demo.get_image())
 
 
-def annotate_masks(image: Image.Image, masks: list, label_mode='1', alpha=0.5, draw_mask=False, draw_mark=True, draw_box=False) -> Image.Image:
+def annotate_masks(
+        image: Image.Image, 
+        masks: list, 
+        label_mode='1', 
+        alpha=0.5, 
+        draw_mask=False, 
+        draw_mark=True, 
+        draw_box=False,
+        mark_position='center'
+    ) -> Image.Image:
     if len(masks) == 0:
         return image
 
@@ -65,7 +74,7 @@ def annotate_masks(image: Image.Image, masks: list, label_mode='1', alpha=0.5, d
         label = i + 1
         color_mask = np.random.random((1, 3)).tolist()[0]
         # color_mask = [int(c*255) for c in color_mask]
-        demo = visualizer.draw_binary_mask_with_number(mask, text=str(label), label_mode=label_mode, alpha=alpha, anno_mode=anno_mode)
+        demo = visualizer.draw_binary_mask_with_number(mask, text=str(label), label_mode=label_mode, alpha=alpha, anno_mode=anno_mode, mark_position=mark_position)
         # assign the mask to the mask_map
         mask_map[mask == 1] = label
     return Image.fromarray(demo.get_image())

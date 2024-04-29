@@ -124,7 +124,7 @@ class LineWiseExecutor:
             line = self.plan_code_lines[self.last_line - 1].strip()
             if self.pause_every_line:
                 user_input = input(f"{Fore.YELLOW}(Executor) Next line to execute (press enter or 'y' to continue): {Fore.CYAN}{line}{Style.RESET_ALL}")
-                if user_input not in ['']:
+                if user_input.strip() not in ['', 'y']:
                     # Emit a signal to this process
                     # Get the current process ID
                     pid = os.getpid()
@@ -154,6 +154,13 @@ class LineWiseExecutor:
         # Combine functions and temporary variables
         execution_context = self.environment.copy()
         execution_context.update(additional_context)
+
+        plan_code = plan_code.strip()
+        
+        print("Executing plan code:")
+        for lno, line in enumerate(plan_code.split("\n")):
+            print(f"{lno + 1}: {line}")
+        print("_" * 100)
 
         self._execute_with_trace(plan_code, execution_context)
 
