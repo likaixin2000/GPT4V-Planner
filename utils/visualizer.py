@@ -304,106 +304,6 @@ class Visualizer:
         css4_colors = mcolors.CSS4_COLORS
         self.color_proposals = [list(mcolors.hex2color(color)) for color in css4_colors.values()]
 
-    def draw_instance_predictions(self, predictions):
-        """
-        Draw instance-level prediction results on an image.
-
-        Args:
-            predictions (Instances): the output of an instance detection/segmentation
-                model. Following fields will be used to draw:
-                "pred_boxes", "pred_classes", "scores", "pred_masks" (or "pred_masks_rle").
-
-        Returns:
-            output (VisImage): image object with visualizations.
-        """
-        boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
-        scores = predictions.scores if predictions.has("scores") else None
-        classes = predictions.pred_classes.tolist() if predictions.has("pred_classes") else None
-        labels = _create_text_labels(classes, scores, self.metadata.get("thing_classes", None))
-        keypoints = predictions.pred_keypoints if predictions.has("pred_keypoints") else None
-
-        keep = (scores > 0.5).cpu()
-        boxes = boxes[keep]
-        scores = scores[keep]
-        classes = np.array(classes)
-        classes = classes[np.array(keep)]
-        labels = np.array(labels)
-        labels = labels[np.array(keep)]
-
-        if predictions.has("pred_masks"):
-            masks = np.asarray(predictions.pred_masks)
-            masks = masks[np.array(keep)]
-            masks = [GenericMask(x, self.output.height, self.output.width) for x in masks]
-        else:
-            masks = None
-
-        if self._instance_mode == ColorMode.SEGMENTATION and self.metadata.get("thing_colors"):
-        # if self.metadata.get("thing_colors"):
-            colors = [
-                self._jitter([x / 255 for x in self.metadata.thing_colors[c]]) for c in classes
-            ]
-            alpha = 0.4
-        else:
-            colors = None
-            alpha = 0.4
-
-        if self._instance_mode == ColorMode.IMAGE_BW:
-            self.output.reset_image(
-                self._create_grayscale_image(
-                    (predictions.pred_masks.any(dim=0) > 0).numpy()
-                    if predictions.has("pred_masks")
-                    else None
-                )
-            )
-            alpha = 0.3
-        
-        self.overlay_instances(
-            masks=masks,
-            boxes=boxes,
-            labels=labels,
-            keypoints=keypoints,
-            assigned_colors=colors,
-            alpha=alpha,
-        )
-        return self.output
-
-    def draw_sem_seg(self, sem_seg, area_threshold=None, alpha=0.7):
-        """
-        Draw semantic segmentation predictions/labels.
-
-        Args:
-            sem_seg (Tensor or ndarray): the segmentation of shape (H, W).
-                Each value is the integer label of the pixel.
-            area_threshold (int): segments with less than `area_threshold` are not drawn.
-            alpha (float): the larger it is, the more opaque the segmentations are.
-
-        Returns:
-            output (VisImage): image object with visualizations.
-        """
-        if isinstance(sem_seg, torch.Tensor):
-            sem_seg = sem_seg.numpy()
-        labels, areas = np.unique(sem_seg, return_counts=True)
-        sorted_idxs = np.argsort(-areas).tolist()
-        labels = labels[sorted_idxs]
-        for label in filter(lambda l: l < len(self.metadata.stuff_classes), labels):
-            try:
-                mask_color = [x / 255 for x in self.metadata.stuff_colors[label]]
-            except (AttributeError, IndexError):
-                mask_color = None
-
-            binary_mask = (sem_seg == label).astype(np.uint8)
-            text = self.metadata.stuff_classes[label]
-            self.draw_binary_mask(
-                binary_mask,
-                color=mask_color,
-                edge_color=_OFF_WHITE,
-                text=text,
-                alpha=alpha,
-                area_threshold=area_threshold,
-            )
-        return self.output
-
-
     def draw_and_connect_keypoints(self, keypoints):
         """
         Draws keypoints of an instance and follows the rules for keypoint connections
@@ -473,7 +373,7 @@ class Visualizer:
         position,
         *,
         font_size=None,
-        color="g",
+        color="white",
         horizontal_alignment="center",
         rotation=0,
     ):
@@ -718,7 +618,8 @@ class Visualizer:
         return self.output
     
     def draw_binary_mask_with_number(
-        self, binary_mask, color=None, *, edge_color=None, text=None, label_mode='1', alpha=0.1, anno_mode=['Mask'], area_threshold=10
+        self, binary_mask, color=None, *, edge_color=None, text=None, label_mode='1', alpha=0.1, anno_mode=['Mask'], area_threshold=10,
+        mark_position='center'
     ):
         """
         Args:
@@ -777,7 +678,7 @@ class Visualizer:
         if text is not None and has_valid_segment:
             # lighter_color = tuple([x*0.2 for x in color])
             lighter_color = [1,1,1] # self._change_color_brightness(color, brightness_factor=0.7)
-            self._draw_number_in_mask(binary_mask, text, lighter_color, label_mode)
+            self._draw_number_in_mask(binary_mask, text, lighter_color, label_mode, position=mark_position)
         return self.output
 
     def draw_polygon(self, segment, color, edge_color=None, alpha=0.5):
@@ -872,7 +773,7 @@ class Visualizer:
         modified_color = colorsys.hls_to_rgb(polygon_color[0], modified_lightness, polygon_color[2])
         return modified_color
 
-    def _draw_number_in_mask(self, binary_mask, text, color, label_mode='1'):
+    def _draw_number_in_mask(self, binary_mask, text, color, label_mode='1', position='center'):
         """
         Find proper places to draw text given a binary mask.
         """
@@ -895,7 +796,19 @@ class Visualizer:
         else:
             text = text
 
-        self.draw_text(text, (coords_x[len(coords_x)//2] + 2, coords_y[len(coords_y)//2] - 6), color=color)
+        if position == 'center':
+            coords = (coords_x[len(coords_x)//2] + 2, coords_y[len(coords_y)//2] - 6)
+        elif position == 'top_left':
+            mask = (binary_mask > 0)
+            rows = np.any(mask, axis=1)
+            cols = np.any(mask, axis=0)
+            min_y, max_y = np.where(rows)[0][0], np.where(rows)[0][-1]
+            min_x, max_x = np.where(cols)[0][0], np.where(cols)[0][-1]
+            coords = (min_x + 8, min_y + 10)
+        else:
+            raise ValueError(f'Invalid position: {position}')
+        
+        self.draw_text(text, coords, color=color)
 
         # TODO sometimes drawn on wrong objects. the heuristics here can improve.
         # _num_cc, cc_labels, stats, centroids = cv2.connectedComponentsWithStats(binary_mask, 8)

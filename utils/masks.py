@@ -153,12 +153,14 @@ class Mask:
         if self.ref_image is None:
             raise ValueError("Reference image is not set.")
 
+        print(f"reidentify: {self.name}")
         matches = detector.detect_objects(
             image=new_image,
             text_queries=[self.name],
             bbox_score_top_k=20,
-            bbox_conf_threshold=0.5
+            bbox_conf_threshold=0.15
         )
+        print(f"matches: {matches}")
 
         # Initialize variables to find the closest match
         closest_match = None
