@@ -8,7 +8,7 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 from isaacgym.torch_utils import *
 from PIL import Image
-from environments.isaac_simulation.examples.util import *
+from util import *
 import torch 
 
 class Environment():
@@ -32,13 +32,15 @@ class Environment():
         gym = gymapi.acquire_gym()
         sim_params = gymapi.SimParams()
         sim_params.physx.solver_type = 1
-        sim_params.physx.num_position_iterations = 6
+        sim_params.physx.num_position_iterations = 8
         sim_params.physx.num_velocity_iterations = 1
+        sim_params.physx.contact_offset = 0.001
         sim_params.physx.use_gpu = True
-        sim_params.physx.contact_offset = 0.01
+        sim_params.physx.contact_offset = 0.001
+        sim_params.physx.friction_offset_threshold = 0.001
         sim_params.physx.rest_offset = 0.0
         sim_params.dt = 1.0 / 60.0
-        # sim_params.substeps = 2
+        sim_params.substeps = 2
         sim_params.up_axis = gymapi.UP_AXIS_Z
         sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
 
@@ -87,7 +89,7 @@ class Environment():
 
         pose_table = gymapi.Transform()
 
-        pose_table.p = gymapi.Vec3(0, 3., 0.02+0.7)
+        pose_table.p = gymapi.Vec3(0, 3., 0.02+0.45)
         pose_table.r = gymapi.Quat(0, 0, 0, 1)
         #pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), -0.5 * math.pi)
         table_handle = gym.create_actor(self.env,table_asset,pose_table,"table",0,0)
@@ -103,15 +105,24 @@ class Environment():
         pose_cup.p = gymapi.Vec3(0.1, 2.8, 0.5+0.7)# higher than the table
         pose_cup.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0., 0, 1), 0.5 * np.pi)
         cup_handle = gym.create_actor(self.env,cup_asset,pose_cup,"cup",0,0)
+        self.cup_idxs=[gym.get_actor_rigid_body_index(self.env, cup_handle, 0, gymapi.DOMAIN_SIM)]
 
-        box_size = 0.05
+        box_size = 0.045
+        asset_options = gymapi.AssetOptions()
         box_asset = gym.create_box(self.sim, box_size, box_size, box_size, asset_options)
         pose_box = gymapi.Transform()
-        pose_box.p = gymapi.Vec3(0.1, 3, 0.4+0.7)
+        pose_box.p = gymapi.Vec3(0.1, 3, 0.2+0.7)
         pose_box.r = gymapi.Quat(0, 0, 0, 1)
         box_handle = gym.create_actor(self.env, box_asset, pose_box, "box", 0, 0)
 
         self.box_idxs=[gym.get_actor_rigid_body_index(self.env, box_handle, 0, gymapi.DOMAIN_SIM)]
+
+        n_steps = 60
+        for i in range(n_steps):
+            gym.simulate(self.sim)
+            gym.fetch_results(self.sim, True)
+            gym.step_graphics(self.sim)
+            # gym.step_graphics(self.sim)
 
 
 
@@ -198,7 +209,7 @@ class Environment():
         franka_hand_index = franka_link_dict["panda_hand"]
 
         franka_pose = gymapi.Transform()
-        franka_pose.p = gymapi.Vec3(-0.7, 3, 0.1)
+        franka_pose.p = gymapi.Vec3(-0.5,3, 0.25)
 
         # add franka to the scene
         franka_handle = gym.create_actor(self.env, franka_asset, franka_pose, "franka", 0, 0) # last para maybe 2
@@ -298,7 +309,7 @@ class Environment():
         gym = gymapi.acquire_gym()
         viewer = gym.create_viewer(self.sim, self.camera_properties)
         gym.subscribe_viewer_keyboard_event(viewer,gymapi.KEY_R,"reset")
-        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(-0.01, 3, 1.1), gymapi.Vec3(0, 3, 0))
+        gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(1, 3, 0.9), gymapi.Vec3(0, 3, 0.7))
         
         ## init information from franka_info init
         num_envs=1
@@ -328,6 +339,8 @@ class Environment():
 
             box_pos = rb_states[self.box_idxs, :3].to(self.device)
             box_rot = rb_states[self.box_idxs, 3:7].to(self.device)
+            # box_pos = rb_states[self.cup_idxs, :3].to(self.device)
+            # box_rot = rb_states[self.cup_idxs, 3:7].to(self.device)
 
             hand_pos = rb_states[self.hand_idxs, :3].to(self.device)
             hand_rot = rb_states[self.hand_idxs, 3:7].to(self.device)
@@ -408,6 +421,6 @@ class Environment():
 
 
 if __name__ == "__main__":
-    asset_root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "assets")
+    asset_root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../assets")
     myenv = Environment(asset_root)
     myenv.loop_test(myenv.franka_info)
