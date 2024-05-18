@@ -101,7 +101,7 @@ class Environment():
         assert_options.fix_base_link = True
         table_asset = gym.create_box(self.sim, self.table_dims.x, self.table_dims.y, self.table_dims.z, assert_options)
         self.table_pose = gymapi.Transform()
-        self.table_pose.p = gymapi.Vec3(0.5, 0, 0.5*self.table_dims.z)
+        self.table_pose.p = gymapi.Vec3(0., 0, 0.5*self.table_dims.z)
         # table_pose.r = gymapi.Quat(0, 0, 0, 1)
         self.table_handle = gym.create_actor(self.env, table_asset, self.table_pose, "table", 0, 0)
         # 设置一个浅灰色的颜色
@@ -170,7 +170,60 @@ class Environment():
         # camera_transform.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), 0) 
         self.set_camera_by_transform(camera_transform)
 
-    def add_object_relative_to_table(self,object_name,urdf_path,pose,axis_angle,fix_base_link=False):
+    def set_look_down_degree_camera(self,degree):
+        gym = gymapi.acquire_gym()
+        camera_transform = gymapi.Transform()
+        camera_transform.p = gymapi.Vec3(self.table_pose.p.x-0.6, self.table_pose.p.y, self.table_dims.z+0.6)
+        camera_transform.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.math.radians(degree))
+        self.set_camera_by_transform(camera_transform)
+
+
+    def add_object(self,object_name,urdf_path,pose,axis_angle,scale=1,fix_base_link=False):
+        gym = gymapi.acquire_gym()
+        asset_options = gymapi.AssetOptions()
+        #asset_options.armature = 0.01
+        asset_options.use_mesh_materials = True
+        asset_options.armature = 0.001
+        #asset_options.fix_base_link = True
+        asset_options.thickness = 0.002
+        #asset_options.disable_gravity = 0
+        asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+    
+        asset_options.fix_base_link = fix_base_link # allow the laptop to fall
+
+        asset = gym.load_asset(self.sim, self.asset_root, urdf_path, asset_options)
+        asset_pose = gymapi.Transform()
+        asset_pose.p = gymapi.Vec3(pose[0],pose[1],pose[2])
+        asset_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(axis_angle[0], axis_angle[1], axis_angle[2]), axis_angle[3])
+        handle = gym.create_actor(self.env,asset,asset_pose,object_name,0,0)
+        if scale != 1:
+            gym.set_actor_scale(self.env, handle,scale)
+        self.handle_map[object_name] = handle
+
+    def add_object_eular(self,object_name,urdf_path,pose,zyx,scale=1,fix_base_link=False):
+        gym = gymapi.acquire_gym()
+        asset_options = gymapi.AssetOptions()
+        #asset_options.armature = 0.01
+        asset_options.use_mesh_materials = True
+        asset_options.armature = 0.001
+        #asset_options.fix_base_link = True
+        asset_options.thickness = 0.002
+        #asset_options.disable_gravity = 0
+        asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+    
+        asset_options.fix_base_link = fix_base_link # allow the laptop to fall
+
+        asset = gym.load_asset(self.sim, self.asset_root, urdf_path, asset_options)
+        asset_pose = gymapi.Transform()
+        asset_pose.p = gymapi.Vec3(pose[0],pose[1],pose[2])
+        # asset_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(axis_angle[0], axis_angle[1], axis_angle[2]), axis_angle[3])
+        asset_pose.r = gymapi.Quat.from_euler_zyx(zyx[0],zyx[1],zyx[2])
+        handle = gym.create_actor(self.env,asset,asset_pose,object_name,0,0)
+        if scale != 1:
+            gym.set_actor_scale(self.env, handle,scale)
+        self.handle_map[object_name] = handle
+
+    def add_object_relative_to_table(self,object_name,urdf_path,pose,axis_angle,scale=1,fix_base_link=False):
         gym = gymapi.acquire_gym()
         asset_options = gymapi.AssetOptions()
         #asset_options.armature = 0.01
@@ -188,7 +241,32 @@ class Environment():
         asset_pose.p = gymapi.Vec3(self.table_pose.p.x + pose[0], self.table_pose.p.y + pose[1], self.table_dims.z + pose[2])
         asset_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(axis_angle[0], axis_angle[1], axis_angle[2]), axis_angle[3])
         handle = gym.create_actor(self.env,asset,asset_pose,object_name,0,0)
+        if scale != 1:
+            gym.set_actor_scale(self.env, handle,scale)
         self.handle_map[object_name] = handle
+
+    def add_object_relative_to_table_eular(self,object_name,urdf_path,pose,zyx,scale=1,fix_base_link=False):
+        gym = gymapi.acquire_gym()
+        asset_options = gymapi.AssetOptions()
+        #asset_options.armature = 0.01
+        asset_options.use_mesh_materials = True
+        asset_options.armature = 0.001
+        #asset_options.fix_base_link = True
+        asset_options.thickness = 0.002
+        #asset_options.disable_gravity = 0
+        asset_options.mesh_normal_mode = gymapi.COMPUTE_PER_VERTEX
+    
+        asset_options.fix_base_link = fix_base_link # allow the laptop to fall
+
+        asset = gym.load_asset(self.sim, self.asset_root, urdf_path, asset_options)
+        asset_pose = gymapi.Transform()
+        asset_pose.p = gymapi.Vec3(self.table_pose.p.x + pose[0], self.table_pose.p.y + pose[1], self.table_dims.z + pose[2])
+        asset_pose.r = gymapi.Quat.from_euler_zyx(zyx[0],zyx[1],zyx[2])
+        handle = gym.create_actor(self.env,asset,asset_pose,object_name,0,0)
+        if scale != 1:
+            gym.set_actor_scale(self.env, handle,scale)
+        self.handle_map[object_name] = handle
+
 
     def add_box_relative_to_table(self,box_name,box_dims,pose,axis_angle,color=None,fix_base_link=False):
         gym = gymapi.acquire_gym()
@@ -355,6 +433,75 @@ class Environment():
 
 
         gym.destroy_sim(self.sim)
+
+
+    def set_franka(self):
+        # load franka asset
+        gym = gymapi.acquire_gym()
+        num_envs = 1
+        controller = "ik" ## or "osc"
+        # Set controller parameters
+        # IK params
+        damping = 0.05
+
+        # OSC params
+        kp = 150.
+        kd = 2.0 * np.sqrt(kp)
+        kp_null = 10.
+        kd_null = 2.0 * np.sqrt(kp_null)
+
+        franka_asset_file = "franka_description/robots/franka_panda.urdf"
+        asset_options = gymapi.AssetOptions()
+        asset_options.armature = 0.01
+        asset_options.fix_base_link = True
+        asset_options.disable_gravity = True
+        asset_options.flip_visual_attachments = True
+        franka_asset = gym.load_asset(self.sim, self.asset_root, franka_asset_file, asset_options)
+
+        # configure franka dofs
+        franka_dof_props = gym.get_asset_dof_properties(franka_asset)
+        franka_lower_limits = franka_dof_props["lower"]
+        franka_upper_limits = franka_dof_props["upper"]
+        franka_ranges = franka_upper_limits - franka_lower_limits
+        franka_mids = 0.3 * (franka_upper_limits + franka_lower_limits)
+
+        # use position drive for all dofs
+        if controller == "ik":
+            franka_dof_props["driveMode"][:7].fill(gymapi.DOF_MODE_POS)
+            franka_dof_props["stiffness"][:7].fill(400.0)
+            franka_dof_props["damping"][:7].fill(40.0)
+        else:       # osc
+            franka_dof_props["driveMode"][:7].fill(gymapi.DOF_MODE_EFFORT)
+            franka_dof_props["stiffness"][:7].fill(0.0)
+            franka_dof_props["damping"][:7].fill(0.0)
+        # grippers
+        franka_dof_props["driveMode"][7:].fill(gymapi.DOF_MODE_POS)
+        franka_dof_props["stiffness"][7:].fill(800.0)
+        franka_dof_props["damping"][7:].fill(40.0)
+
+        # default dof states and position targets
+        franka_num_dofs = gym.get_asset_dof_count(franka_asset)
+        default_dof_pos = np.zeros(franka_num_dofs, dtype=np.float32)
+        default_dof_pos[:7] = franka_mids[:7]
+        # grippers open
+        default_dof_pos[7:] = franka_upper_limits[7:]
+
+        default_dof_state = np.zeros(franka_num_dofs, gymapi.DofState.dtype)
+        default_dof_state["pos"] = default_dof_pos
+
+        # # send to torch (osc only)
+        # default_dof_pos_tensor = to_torch(default_dof_pos, device=self.device)
+
+        # get link index of panda hand, which we will use as end effector
+        franka_link_dict = gym.get_asset_rigid_body_dict(franka_asset)
+        franka_hand_index = franka_link_dict["panda_hand"]
+
+        franka_pose = gymapi.Transform()
+        franka_pose.p = gymapi.Vec3(0.5,0, 0.25)
+        franka_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.pi)
+
+        # add franka to the scene
+        franka_handle = gym.create_actor(self.env, franka_asset, franka_pose, "franka", 0, 0) # last para maybe 2
 
 
 

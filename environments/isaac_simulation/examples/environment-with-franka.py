@@ -209,7 +209,9 @@ class Environment():
         franka_hand_index = franka_link_dict["panda_hand"]
 
         franka_pose = gymapi.Transform()
-        franka_pose.p = gymapi.Vec3(-0.5,3, 0.25)
+        franka_pose.p = gymapi.Vec3(0.5,3, 0.25)
+        #绕z轴旋转180度
+        franka_pose.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), np.pi)
 
         # add franka to the scene
         franka_handle = gym.create_actor(self.env, franka_asset, franka_pose, "franka", 0, 0) # last para maybe 2
@@ -337,10 +339,10 @@ class Environment():
             gym.refresh_jacobian_tensors(self.sim)
             gym.refresh_mass_matrix_tensors(self.sim)
 
-            box_pos = rb_states[self.box_idxs, :3].to(self.device)
-            box_rot = rb_states[self.box_idxs, 3:7].to(self.device)
-            # box_pos = rb_states[self.cup_idxs, :3].to(self.device)
-            # box_rot = rb_states[self.cup_idxs, 3:7].to(self.device)
+            # box_pos = rb_states[self.box_idxs, :3].to(self.device)
+            # box_rot = rb_states[self.box_idxs, 3:7].to(self.device)
+            box_pos = rb_states[self.cup_idxs, :3].to(self.device)
+            box_rot = rb_states[self.cup_idxs, 3:7].to(self.device)
 
             hand_pos = rb_states[self.hand_idxs, :3].to(self.device)
             hand_rot = rb_states[self.hand_idxs, 3:7].to(self.device)
