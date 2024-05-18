@@ -1,0 +1,27 @@
+<?xml version="1.0" ?>
+<robot name="iphone.urdf">
+  <link name="baseLink">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="0.1"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="iphone13.obj" scale="0.1 0.1 0.1"/>
+      </geometry>
+      <!-- <material name="white">
+       <color rgba="1 1 1 1"/>
+     </material> -->
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <!-- <mesh filename="iphone13.obj" scale="0.1 0.1 0.1"/> -->
+        <!-- You could also specify the collision (for the scissors) with a "box" tag: -->
+        <box size="1.2 0.6 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
