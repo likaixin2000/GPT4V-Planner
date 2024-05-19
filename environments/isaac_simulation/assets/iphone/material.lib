@@ -1,0 +1,104 @@
+# Aspose.3D Wavefront OBJ Exporter
+# Copyright 2004-2024 Aspose Pty Ltd.
+# File created: 05/18/2024 07:09:31
+
+newmtl Glossy
+	illum 2
+	Kd 0 0 0
+	Ke 0 0 0
+	Pr 0.114286065
+	Pm 0
+	d 1
+	Tr 0
+newmtl Bezel
+	illum 2
+	Kd 0.0134104 0.0134104 0.0134104
+	Ke 0 0 0
+	Pr 0.3459058
+	Pm 0.8518121
+	d 1
+	Tr 0
+newmtl FCam2
+	illum 2
+	Kd 0.0331028 0.0331028 0.0331028
+	Ke 0 0 0
+	Pr 0.989532
+	Pm 0
+	d 1
+	Tr 0
+newmtl FCam
+	illum 2
+	Kd 0.00961574 0.00961574 0.00961574
+	Ke 0 0 0
+	Pr 0
+	Pm 0
+	d 1
+	Tr 0
+newmtl Back
+	illum 2
+	Kd 1 1 1
+	Ke 0 0 0
+	Pr 0.20571491
+	Pm 0.42514417
+	d 1
+	Tr 0
+	map_Kd texture_1.png
+newmtl Cam_border
+	illum 2
+	Kd 0.8 0.8 0.8
+	Ke 0 0 0
+	Pr 0.081140056
+	Pm 1
+	d 1
+	Tr 0
+newmtl Glass
+	illum 2
+	Kd 0.8 0.8 0.8
+	Ke 0 0 0
+	Pr 0
+	Pm 0
+	d 0.35809633
+	Tr 0.6419037
+newmtl Screen
+	illum 2
+	Kd 1 1 1
+	Ke 0.10666699 0.10666699 0.10666699
+	Pr 0.030063745
+	Pm 0
+	d 1
+	Tr 0
+	map_Kd texture_2.png
+	map_Ke texture_2.png
+newmtl Cams
+	illum 2
+	Kd 1 1 1
+	Ke 0 0 0
+	Pr 0.02895247
+	Pm 0
+	d 1
+	Tr 0
+	map_Kd texture_3.png
+newmtl Buttons
+	illum 2
+	Kd 0.12371 0.12371 0.12371
+	Ke 0 0 0
+	Pr 0.46781096
+	Pm 0.90666944
+	d 1
+	Tr 0
+newmtl Flash
+	illum 2
+	Kd 0.8 0.8 0.8
+	Ke 0.0699787 0.0699787 0.0699787
+	Pr 0.7883399
+	Pm 0
+	d 1
+	Tr 0
+newmtl Light
+	illum 2
+	Kd 0.668133 0.8 0.444752
+	Ke 0.509908 0.581465 0.362804
+	Pr 0.8331186
+	Pm 0
+	d 1
+	Tr 0
