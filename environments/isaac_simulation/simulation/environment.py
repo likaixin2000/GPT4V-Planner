@@ -177,6 +177,33 @@ class Environment():
         camera_transform.r = gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 1, 0), np.math.radians(degree))
         self.set_camera_by_transform(camera_transform)
 
+    def pixel_to_position(self,pixel,depth):
+        gym = gymapi.acquire_gym()
+        u,v = pixel
+        height, width = self.camera_properties.height, self.camera_properties.width
+        camera_pos = self.camera_pose
+        horizontal_fov = self.camera_properties.horizontal_fov
+        vertical_fov = (height/width * horizontal_fov) * np.pi / 180
+        horizontal_fov = horizontal_fov * np.pi / 180
+        f_x = width / (2 * np.tan(horizontal_fov / 2))
+        f_y = height / (2 * np.tan(vertical_fov / 2))
+        K = np.array([[f_x, 0, width/2],[0,f_y,height/2],[0,0,1]])
+        K_inv = np.linalg.inv(K)
+        view_matrix = gym.get_camera_view_matrix(self.sim,self.env,self.camera_handle)
+        view_matrix = np.array(view_matrix).reshape(4,4)
+        _pixel = np.array([u,v,1])
+        _pixel = np.dot(K_inv,_pixel)
+        _pixel = np.append(_pixel,1)
+        _pixel = np.dot(np.linalg.inv(view_matrix),_pixel)
+        _pixel = _pixel / _pixel[-1]
+        _pixel = _pixel[:3]
+        _pixel = _pixel * depth
+        _pixel = _pixel + np.array([camera_pos.x,camera_pos.y,camera_pos.z])
+
+
+        return _pixel
+
+
 
     def add_object(self,object_name,urdf_path,pose,axis_angle,scale=1,fix_base_link=False):
         gym = gymapi.acquire_gym()
@@ -347,26 +374,6 @@ class Environment():
         gym.render_all_camera_sensors(self.sim)
         return pick_name
             
-        
-    # example
-    def add_init_objects(self):
-        asset_options = gymapi.AssetOptions()
-        asset_options.fix_base_link = False
-        gym = gymapi.acquire_gym()
-        box_size = 0.05
-        box_asset = gym.create_box(self.sim, box_size, box_size, box_size, asset_options)
-        pose_box = gymapi.Transform()
-        #pose_box.p = gymapi.Vec3(0.1, 3, 0.4)
-        pose_box.p = gymapi.Vec3(self.table_pose.p.x , self.table_pose.p.y, self.table_pose.p.z + 0.3)
-        pose_box.r = gymapi.Quat(0, 0, 0, 1)
-        box_handle = gym.create_actor(self.env, box_asset, pose_box, "box2", 0, 0)
-        color = gymapi.Vec3(0, 0.7, 0.7)
-        gym.set_rigid_body_color(self.env, box_handle, 0, gymapi.MESH_VISUAL_AND_COLLISION, color)
-
-        # self.handle_map['box']=box_handle
-        self.add_object_relative_to_table("laptop","laptop/laptop.urdf",[-0.1, 0.3, 0.2],[0.09, 0.09, 2, 0.5 * np.pi])
-        self.add_object_relative_to_table("cup","yellow_cup/model.urdf",[0.1, -0.2, 0.3],[0., 0, 1, 0.5 * np.pi])
-        self.add_box_relative_to_table("box",[0.05, 0.05, 0.05],[0, -0.1, 0.1],[0, 0, 1, 0],[0, 0.7, 0.7])
 
 
 
