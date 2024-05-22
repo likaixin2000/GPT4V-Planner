@@ -8,7 +8,7 @@ from isaacgym import gymutil
 from isaacgym import gymtorch
 from isaacgym.torch_utils import *
 from PIL import Image
-# from environments.isaac_simulation.examples.util import *
+from scipy.spatial.transform import Rotation
 import torch 
 
 import threading
@@ -185,22 +185,75 @@ class Environment():
         horizontal_fov = self.camera_properties.horizontal_fov
         vertical_fov = (height/width * horizontal_fov) * np.pi / 180
         horizontal_fov = horizontal_fov * np.pi / 180
-        f_x = width / (2 * np.tan(horizontal_fov / 2))
-        f_y = height / (2 * np.tan(vertical_fov / 2))
-        K = np.array([[f_x, 0, width/2],[0,f_y,height/2],[0,0,1]])
-        K_inv = np.linalg.inv(K)
-        view_matrix = gym.get_camera_view_matrix(self.sim,self.env,self.camera_handle)
-        view_matrix = np.array(view_matrix).reshape(4,4)
-        _pixel = np.array([u,v,1])
-        _pixel = np.dot(K_inv,_pixel)
-        _pixel = np.append(_pixel,1)
-        _pixel = np.dot(np.linalg.inv(view_matrix),_pixel)
-        _pixel = _pixel / _pixel[-1]
-        _pixel = _pixel[:3]
-        _pixel = _pixel * depth
-        _pixel = _pixel + np.array([camera_pos.x,camera_pos.y,camera_pos.z])
+        
+        # u永远和x对应 v永远和y对应
+
+        # u width v height
+        # f_x = width / (2 * np.tan(horizontal_fov / 2))
+        # f_y = height / (2 * np.tan(vertical_fov / 2))
+        # K = np.array([[f_x, 0, width/2],[0,f_y,height/2],[0,0,1]])
+
+        # u height v width
+        f_x = height / (2 * np.tan(vertical_fov / 2))
+        f_y = width / (2 * np.tan(horizontal_fov / 2))
+
+        x = (u - height/2) * depth / f_x
+        y = -(v - width/2) * depth / f_y # y轴是反的，x轴向上的话，y轴向左（z轴朝向自己）
+        z = -depth
+
+        print("cx,cy,cz",x,y,z)
+
+        transform = gym.get_camera_transform(self.sim,self.env,self.camera_handle)
+        rx,ry,rz,rw = transform.r.x,transform.r.y,transform.r.z,transform.r.w
+        rotation = Rotation.from_quat([rx,ry,rz,rw])
+        rotation_matrix = rotation.as_matrix()
+        # not we need
+        # print("gym  transform matrix",gym.get_camera_view_matrix(self.sim,self.env,self.camera_handle))
+        wx,wy,wz = np.dot(np.linalg.inv(rotation_matrix),np.array([x,y,z]))
+        wx = wx + transform.p.x
+        wy = wy + transform.p.y
+        wz = wz + transform.p.z
+        return [wx,wy,wz]
 
 
+
+        # K = np.array([[f_x, 0, height/2],[0,f_y,width/2],[0,0,1]])
+
+        # K = K / depth
+        
+        # K_inv = np.linalg.inv(K)
+        transform = gym.get_camera_transform(self.sim,self.env,self.camera_handle)
+        # print("transform p ",transform.p)
+        # print("transform r ",transform.r)
+        # matrix_r = gymapi.Quat.to_matrix(transform.r)
+        rx,ry,rz,rw = transform.r.x,transform.r.y,transform.r.z,transform.r.w
+        rotation = Rotation.from_quat([rx,ry,rz,rw])
+        rotation_matrix = rotation.as_matrix()
+        # print("rotation_matrix",rotation_matrix)
+        view_matrix = np.eye(4)
+        view_matrix[:3,:3] = rotation_matrix
+        view_matrix[0,3] = transform.p.x
+        view_matrix[1,3] = transform.p.y
+        view_matrix[2,3] = transform.p.z
+        # # view_matrix = gym.get_camera_view_matrix(self.sim,self.env,self.camera_handle)
+        # print("view_matrix",view_matrix)
+        # #符合预期，是一个斜向下45度的rotation pose也正确
+        # # view_matrix [[ 0.70710674  0.          0.70710683 -0.60000002]
+        # # [ 0.          1.          0.          0.        ]
+        # # [-0.70710683  0.          0.70710674  1.        ]
+        # # [ 0.          0.          0.          1.        ]]
+        # # view_matrix = np.array(view_matrix).reshape(4,4)
+        # _pixel = np.array([u,v,1])
+        # _pixel = np.dot(K_inv,_pixel)
+        # _pixel = _pixel * depth # depth是摄像头到物体的绝对距离
+        # _pixel[2] = -_pixel[2] # camera应该是像z轴负方向看的，所以我觉得z应该是取一个负
+        # _pixel = np.append(_pixel,1)
+        # # print("inv view_matrix",np.linalg.inv(view_matrix))
+        # _pixel=np.array([0,0,0,1])
+        # print(np.dot(view_matrix,np.array([-0.6,0,1,1])))
+        # _pixel = np.dot(np.linalg.inv(view_matrix),_pixel)
+        # _pixel = _pixel / _pixel[-1]
+        # _pixel = _pixel[:3]
         return _pixel
 
 
@@ -514,6 +567,7 @@ class Environment():
 
 if __name__ == "__main__":
     asset_root = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "assets")
-    myenv = Environment(asset_root)
+    myenv = Environment(asset_root,enable_gui=False)
     myenv.reset()
-    myenv.camera_test()
+    # myenv.camera_test()
+    # pose = myenv.pixel_to_position([])
