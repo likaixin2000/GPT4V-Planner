@@ -400,6 +400,11 @@ class Environment():
         normalized_depth_image = Image.fromarray(normalized_depth.astype(np.uint8), mode="L")
         return normalized_depth_image
     
+    def get_gym_handle_pose(self,handle_name):
+        gym = gymapi.acquire_gym()
+        body_pose = gym.get_actor_rigid_body_states(self.env,self.handle_map[handle_name],gymapi.STATE_POS)
+        return body_pose['pose']['p']
+    
     def pick_place(self,pick_point,place_point):
         gym = gymapi.acquire_gym()
         pick_x, pick_y ,pick_z = pick_point
