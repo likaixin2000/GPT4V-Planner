@@ -1,0 +1,86 @@
+# position_dict:
+#   position_object:
+#     - [cup,yellow_cup/model.urdf]
+#     - [laptop,laptop/laptop.urdf]
+#     - [iphone,iphone/iphone.urdf]
+#   position_word:
+#     - in front of
+#     - behind
+#     - next to
+#     - on the left of
+#     - on the right of
+
+feature_dict:
+  most expensive object:
+    # - [laptop,laptop/laptop.urdf]
+    - [iphone,iphone/iphone.urdf]
+
+  object which contains the vitamin C:
+    - [orange,plastic_orange/model.urdf]
+    - [lemon,plastic_lemon/model.urdf]
+
+  object which might appear in the library:
+    - [book3,book_3/model.urdf]
+    - [black_marker,black_marker/model.urdf]
+
+  object which might appear in the kitchen:
+    - [orange,plastic_orange/model.urdf]
+    - [spoon,spoon/model.urdf]
+    - [fork,fork/model.urdf]
+    - [cup,yellow_cup/model.urdf]
+
+  object which might appear in bathroom:
+    - [soap,soap/model.urdf]
+    - [shampoo,shampoo/model.urdf]
+
+  object for eat:
+    - [cracker_box,cracker_box/model.urdf]
+    - [orange,plastic_orange/model.urdf]
+    - [cupcake,cupcake/cupcake.urdf]
+
+  object for drink:
+    - [cup,yellow_cup/model.urdf]
+    - [blue_cup,blue_cup/model.urdf]
+    - [lipton_tea,lipton_tea/model.urdf]
+
+  object for noise:
+    - [headphones,earphone/headphones.urdf]
+
+under_above_dict:
+  object_under:
+    - [iphone,iphone/iphone.urdf]
+    - [book1,book_1/model.urdf]
+    - [cup,yellow_cup/model.urdf]
+ 
+  object_above:
+    - [cup,yellow_cup/model.urdf]
+    - [iphone,iphone/iphone.urdf]
+    - [black_marker,black_marker/model.urdf]
+    - [orange,plastic_orange/model.urdf]
+
+
+object_list:
+  - [blue_cup,blue_cup/model.urdf]
+  - [book2,book_2/model.urdf]
+  - [yellow_bowl,yellow_bowl/model.urdf]
+  - [rubick,rubick/cube.urdf]
+  - [black_marker,black_marker/model.urdf]
+  - [orange,plastic_orange/model.urdf]
+  - [spoon,spoon/model.urdf]
+  - [fork,fork/model.urdf]
+  - [cup,yellow_cup/model.urdf]
+  - [soap,soap/model.urdf]
+  - [shampoo,shampoo/model.urdf]
+  # - [laptop,laptop/laptop.urdf]
+  - [iphone,iphone/iphone.urdf]
+
+
+
+
+
+     
+
+  
+
+  
+

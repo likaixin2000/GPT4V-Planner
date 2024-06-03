@@ -2,6 +2,7 @@ import os
 from PIL import Image
 from .environment import Environment
 from . import simulation_utils as utils
+from . import helper
 
 class Task():
     def __init__(self, asset_root=None, enable_gui=False):
@@ -10,7 +11,8 @@ class Task():
         else:
             self._env = Environment(asset_root=asset_root, enable_gui=enable_gui)
 
-        self.pixel_size = 1 / 1066 # when camera pose is at z=1 and image size is 1280*720
+        self.position_helper = helper.PositionHelper()
+        self.object_helper = helper.ObjectHelper()
 
     # init object in the environment and set camera
     def reset(self):
@@ -47,17 +49,25 @@ class Task():
         pixel_size = self.pixel_size
 
         # 注意这里深度depth是负数，所以我们取反 而且是 720*1080
-        pick_point_tf = utils.pixel_to_position(
-            [pick_point_x,pick_point_y],
-            -depth[pick_point_y][pick_point_x],
-            camera_config,
-            pixel_size
+        # pick_point_tf = utils.pixel_to_position(
+        #     [pick_point_x,pick_point_y],
+        #     -depth[pick_point_y][pick_point_x],
+        #     camera_config,
+        #     pixel_size
+        # )
+        pick_point_tf = self._env.pixel_to_position(
+            (pick_point_x,pick_point_y),
+            -depth[pick_point_y][pick_point_x]
         )
-        place_point_tf = utils.pixel_to_position(
-            [place_point_x,place_point_y],
-            -depth[place_point_y][place_point_x],
-            camera_config,
-            pixel_size
+        # place_point_tf = utils.pixel_to_position(
+        #     [place_point_x,place_point_y],
+        #     -depth[place_point_y][place_point_x],
+        #     camera_config,
+        #     pixel_size
+        # )
+        place_point_tf = self._env.pixel_to_position(
+            (place_point_x,place_point_y),
+            -depth[place_point_y][place_point_x]
         )
         print(f"pick_point_tf: {pick_point_tf}")
         print(f"place_point_tf: {place_point_tf}")

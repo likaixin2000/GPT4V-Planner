@@ -2,6 +2,7 @@ import os
 from PIL import Image
 from .task import Task
 import numpy as np
+import random
 
 class NeedGlasses(Task):
     def __init__(self, *args, **kwargs):
@@ -9,30 +10,57 @@ class NeedGlasses(Task):
 
     def reset(self):
         super().reset()
+        # 1. add environments object
 
-        self._env.add_object_relative_to_table("laptop","laptop/laptop.urdf",[-0.05, 0.3, 0.01],[0.09, 0.09, 2, 0.5 * np.pi],fix_base_link=True)
+        # 2. target object and reward position 
+                # self._env.add_object_relative_to_table_eular("glasses","glasses/glasses.urdf",[0, 0, 0.5],[0.5 * np.pi,0,0.5 * np.pi])
 
-        # set remote control
-        self._env.add_object_relative_to_table("charger","charger/charger.urdf",[-0.1, -0.2, 0.2],[0.09, 0.09, 2, 0.5 * np.pi])
+        self.target_object_name = "glasses"
+        self.target_object_path = "glasses/glasses.urdf"
+        self.reference_object = ("iphone","iphone/iphone.urdf")
+        self.place_position_info = self.position_helper.get_random_position()
+        
 
-        # todo
-        # self._env.add_object('lcdtv','lcdtv/tv.urdf',[0.5, 0.8, 0.8],[0, 0, 0,0],fix_base_link=True)
+        # 3. define prompt
+        self.tast_prompt = f"I plan to use my iphone but my eyes are bad, put what I need {self.place_position_info['words']} the iphone."
 
-        # add distractor
-        self._env.add_object_relative_to_table("book","book_1/model.urdf",[0.1, -0.2, 0.05],[0., 0, 1, 0.5 * np.pi])
-        #绕x轴旋转90度，再绕z轴旋转90度
-        # self._env.add_object_relative_to_table("glasses","glasses/glasses.urdf",[0, 0, 0.5],[1,0,0,0.5 * np.pi])
-        self._env.add_object_relative_to_table_eular("glasses","glasses/glasses.urdf",[0, 0, 0.5],[0.5 * np.pi,0,0.5 * np.pi])
+        # 4. add distractor
 
-        # self._env.add_box_relative_to_table("box",[0.05, 0.05, 0.05],[0, -0.1, 0],[0, 0, 1, 0],[0, 0.7, 0.7])
-        # self._env.add_box_relative_to_table("box",[0.05, 0.05, 0.05],[0, -0.1, 0],[0, 0, 1, 0],[0, 0.7, 0.7])
-  
-        # self._env.set_look_ahead_camera()
+        unselected_object = [(self.target_object_name, self.target_object_path), self.reference_object]
+        self.distactor_objects = self.object_helper.get_distractors(n=2, unselect_list=unselected_object)
+
+        # 5. layout the objects
+
+        self.object_lists = ([(self.target_object_name,self.target_object_path), self.reference_object] + self.distactor_objects)
+        random.shuffle(self.object_lists)
+
+        #todo random layout 
+
+        positions = [(-0.15,-0.25),(-0.15,0.25),(0.15,-0.25),(0.15,0.25)]
+        
+        print(self.object_lists)
+        for i, (object_name, object_path) in enumerate(self.object_lists):
+
+            self._env.add_object_relative_to_table_eular(object_name,object_path,[positions[i][0],positions[i][1],0.15],[0,0,0])
+
+
         self._env.set_look_down_degree_camera(45)
         self._env.empty_step(60)
         self._env.set_franka()
+        print(self.tast_prompt)
 
 
 
     def get_image(self):
         return super().get_image()
+    
+    def reward(self):
+        target_pose = self._env.get_gym_handle_pose(self.target_object_name)
+        reference_pose = self._env.get_gym_handle_pose(self.reference_object[0])
+        x_y_answer_position = np.array(self.place_position_info["relative_position"]) + np.array(reference_pose[:2])
+        x_y_taget_position = np.array(target_pose[:2])
+        distance = np.linalg.norm(x_y_answer_position - x_y_taget_position)
+        if distance < self.place_position_info["distance"]:
+            return 1
+        else:
+            return 0
